@@ -28,3 +28,12 @@ vendor/
 # OS-specific files
 .DS_Store
 Thumbs.db
+polling-app
+coverage.out
+coverage.html
+
+# Ent generated files (optional - can be committed or ignored)
+# Uncomment these lines to ignore generated Ent code:
+# internal/ent/*.go
+# internal/ent/*/
+# !internal/ent/schema/

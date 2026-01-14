@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/ivankorhner/polling-app/internal/config"
+	"github.com/ivankorhner/polling-app/internal/ent"
 	"github.com/ivankorhner/polling-app/internal/server/middleware"
 )
 
@@ -13,6 +14,7 @@ func AddRoutes(
 	ctx context.Context,
 	config *config.Config,
 	logger *slog.Logger,
+	client *ent.Client,
 ) http.Handler {
 	mux := http.NewServeMux()
 

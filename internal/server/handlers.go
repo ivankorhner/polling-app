@@ -21,7 +21,9 @@ func handleHealth(logger *slog.Logger) http.Handler {
 				"failed to write health response",
 				slog.String("error", err.Error()),
 			)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			// Note: Can't call http.Error here as headers are already written
+			// Just log the error
+			return
 		}
 	})
 }

@@ -14,10 +14,11 @@ func NewDefaults(
 	logger *slog.Logger,
 ) func(h http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
-		return requestId(logger,
-			httpRequest(logger,
-				timeout(config.ApiTimeout,
-					panicRecovery(logger, h),
+		// Correct order: panic recovery outermost, then request tracking, then timeout
+		return panicRecovery(logger,
+			requestId(logger,
+				httpRequest(logger,
+					timeout(config.ApiTimeout, h),
 				),
 			),
 		)
