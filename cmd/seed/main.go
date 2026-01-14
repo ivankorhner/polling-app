@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/ivankorhner/polling-app/internal/config"
 	"github.com/ivankorhner/polling-app/internal/ent"
@@ -17,7 +17,7 @@ func main() {
 	logger := logging.NewLogger(slog.LevelInfo)
 
 	// Connect to database
-	client, err := ent.Open("postgres", cfg.DatabaseURL())
+	client, err := ent.Open("pgx", cfg.DatabaseURL())
 	if err != nil {
 		logger.LogAttrs(ctx, slog.LevelError, "failed to open database", slog.Any("error", err))
 		return

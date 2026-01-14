@@ -11,7 +11,7 @@ import (
 
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/ivankorhner/polling-app/internal/config"
 	"github.com/ivankorhner/polling-app/internal/ent"
@@ -30,7 +30,7 @@ func run(
 	slog.SetDefault(logger)
 
 	// Open database connection with pooling configuration
-	db, err := sql.Open("postgres", config.DatabaseURL())
+	db, err := sql.Open("pgx", config.DatabaseURL())
 	if err != nil {
 		return err
 	}

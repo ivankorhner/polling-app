@@ -7,6 +7,7 @@ import (
 
 	"github.com/ivankorhner/polling-app/internal/config"
 	"github.com/ivankorhner/polling-app/internal/ent"
+	"github.com/ivankorhner/polling-app/internal/handlers"
 	"github.com/ivankorhner/polling-app/internal/server/middleware"
 )
 
@@ -20,7 +21,8 @@ func AddRoutes(
 
 	middlewares := middleware.NewDefaults(ctx, config, logger)
 
-	mux.Handle(http.MethodGet+" /health", handleHealth(logger))
+	mux.Handle(http.MethodGet+" /health", handlers.HandleHealth(logger))
+	mux.Handle(http.MethodGet+" /polls", handlers.HandleListPolls(logger, client))
 
 	mux.Handle("/", http.NotFoundHandler())
 
