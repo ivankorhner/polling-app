@@ -116,19 +116,6 @@ migrate-reset: .ensure-atlas ## Reset database - drop all tables and reapply mig
 		echo "Cancelled"; \
 	fi
 
-migrate-ci: .ensure-atlas ## Run migrations in CI/CD (validates, shows status, applies if needed)
-	@echo "=== CI/CD Migration Pipeline ==="
-	@echo "Step 1: Validating migration files..."
-	@atlas migrate validate --dir "file://internal/migrate/migrations"
-	@echo "✓ Migrations are valid"
-	@echo ""
-	@echo "Step 2: Checking migration status..."
-	@atlas migrate status --dir "file://internal/migrate/migrations" --url "$(DB_URL)"
-	@echo ""
-	@echo "Step 3: Applying pending migrations..."
-	@atlas migrate apply --dir "file://internal/migrate/migrations" --url "$(DB_URL)"
-	@echo "✓ Migration pipeline completed successfully"
-
 db-up: ## Start PostgreSQL database
 	docker-compose up -d postgres
 	@echo "Database started. Waiting for it to be ready..."

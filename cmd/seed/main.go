@@ -1,16 +1,14 @@
 package main
 
 import (
-"context"
-"fmt"
-"log/slog"
+	"context"
+	"log/slog"
 
-"entgo.io/ent/dialect/sql/schema"
-_ "github.com/lib/pq"
+	_ "github.com/lib/pq"
 
-"github.com/ivankorhner/polling-app/internal/config"
-"github.com/ivankorhner/polling-app/internal/ent"
-"github.com/ivankorhner/polling-app/internal/logging"
+	"github.com/ivankorhner/polling-app/internal/config"
+	"github.com/ivankorhner/polling-app/internal/ent"
+	"github.com/ivankorhner/polling-app/internal/logging"
 )
 
 func main() {
@@ -25,12 +23,6 @@ func main() {
 		return
 	}
 	defer client.Close()
-
-	// Auto-migrate schema if needed
-	if err := client.Schema.Create(ctx, schema.WithAtlas(true)); err != nil {
-		logger.LogAttrs(ctx, slog.LevelError, "failed to create schema", slog.Any("error", err))
-		return
-	}
 
 	logger.Info("seeding database with demo data")
 
@@ -93,7 +85,7 @@ func main() {
 		return
 	}
 
-	opt3, err := client.PollOption.Create().
+	_, err = client.PollOption.Create().
 		SetPollID(poll1.ID).
 		SetText("Python").
 		SetVoteCount(0).
@@ -104,7 +96,7 @@ func main() {
 	}
 
 	// Create poll options for poll2
-	opt4, err := client.PollOption.Create().
+	_, err = client.PollOption.Create().
 		SetPollID(poll2.ID).
 		SetText("React").
 		SetVoteCount(0).
@@ -114,7 +106,7 @@ func main() {
 		return
 	}
 
-	opt5, err := client.PollOption.Create().
+	_, err = client.PollOption.Create().
 		SetPollID(poll2.ID).
 		SetText("Vue").
 		SetVoteCount(0).
@@ -146,19 +138,19 @@ func main() {
 	}
 
 	// Update vote counts
-	if err := opt1.Update().SetVoteCount(1).Exec(ctx); err != nil {
+	if err := client.PollOption.UpdateOneID(opt1.ID).SetVoteCount(1).Exec(ctx); err != nil {
 		logger.LogAttrs(ctx, slog.LevelError, "failed to update option1 vote count", slog.Any("error", err))
 		return
 	}
-	if err := opt2.Update().SetVoteCount(1).Exec(ctx); err != nil {
+	if err := client.PollOption.UpdateOneID(opt2.ID).SetVoteCount(1).Exec(ctx); err != nil {
 		logger.LogAttrs(ctx, slog.LevelError, "failed to update option2 vote count", slog.Any("error", err))
 		return
 	}
 
 	logger.Info("database seeded successfully",
-slog.Int("users", 2),
-slog.Int("polls", 2),
-slog.Int("options", 5),
-slog.Int("votes", 2),
-)
+		slog.Int("users", 2),
+		slog.Int("polls", 2),
+		slog.Int("options", 5),
+		slog.Int("votes", 2),
+	)
 }
