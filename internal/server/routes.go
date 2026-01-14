@@ -16,5 +16,11 @@ func AddRoutes(
 ) http.Handler {
 	mux := http.NewServeMux()
 
-	middlewareDefaults := middleware.NewDefaults(ctx, config, logger)
+	middlewares := middleware.NewDefaults(ctx, config, logger)
+
+	mux.Handle(http.MethodGet+" /health", handleHealth(logger))
+
+	mux.Handle("/", http.NotFoundHandler())
+
+	return middlewares(mux)
 }

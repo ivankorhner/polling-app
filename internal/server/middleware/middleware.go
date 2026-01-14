@@ -12,12 +12,14 @@ func NewDefaults(
 	ctx context.Context,
 	config *config.Config,
 	logger *slog.Logger,
-) http.Handler {
-	return requestId(logger,
-		httpRequest(logger,
-			timeout(config.ApiTimeout,
-				panicRecovery(logger, nil),
+) func(h http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return requestId(logger,
+			httpRequest(logger,
+				timeout(config.ApiTimeout,
+					panicRecovery(logger, h),
+				),
 			),
-		),
-	)
+		)
+	}
 }
