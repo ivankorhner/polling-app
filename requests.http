@@ -1,0 +1,63 @@
+### Polling App API Requests
+### Base URL
+@baseUrl = http://localhost:8080
+@contentType = application/json
+
+### Create a new poll
+POST {{baseUrl}}/polls
+Content-Type: {{contentType}}
+
+{
+  "title": "Best Programming Language",
+  "question": "Which programming language do you prefer?",
+  "options": ["Go", "Rust", "Python", "JavaScript"]
+}
+
+###
+
+### Create another poll
+POST {{baseUrl}}/polls
+Content-Type: {{contentType}}
+
+{
+  "title": "Best Go Web Framework",
+  "question": "What's your favorite Go web framework?",
+  "options": ["Gin", "Echo", "Chi", "Fiber"]
+}
+
+###
+
+### List all polls
+GET {{baseUrl}}/polls
+
+###
+
+### Get a specific poll (replace 1 with actual poll ID)
+GET {{baseUrl}}/polls/1
+
+###
+
+### Vote on a poll option (replace 1 with poll ID, option_index with 0-3)
+POST {{baseUrl}}/polls/1/vote
+Content-Type: {{contentType}}
+
+{
+  "option_index": 0
+}
+
+###
+
+### Vote on another option
+POST {{baseUrl}}/polls/1/vote
+Content-Type: {{contentType}}
+
+{
+  "option_index": 2
+}
+
+###
+
+### Delete a poll (replace 1 with poll ID)
+DELETE {{baseUrl}}/polls/1
+
+###
