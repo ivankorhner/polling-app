@@ -57,9 +57,12 @@ func run(
 	)
 
 	httpServer := &http.Server{
-		Addr:     config.Addr(),
-		Handler:  server.AddRoutes(ctx, config, logger, client),
-		ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelInfo),
+		Addr:         config.Addr(),
+		Handler:      server.AddRoutes(ctx, config, logger, db, client),
+		ErrorLog:     slog.NewLogLogger(logger.Handler(), slog.LevelInfo),
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
 
 	serverErrors := make(chan error, 1)

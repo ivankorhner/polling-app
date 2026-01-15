@@ -60,17 +60,37 @@ func TestHandleListPolls_WithPolls(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create test options
-	_, err = testDB.Client.PollOption.Create().
+	opt1, err := testDB.Client.PollOption.Create().
 		SetPollID(poll.ID).
 		SetText("Option 1").
-		SetVoteCount(5).
 		Save(ctx)
 	require.NoError(t, err)
 
-	_, err = testDB.Client.PollOption.Create().
+	opt2, err := testDB.Client.PollOption.Create().
 		SetPollID(poll.ID).
 		SetText("Option 2").
-		SetVoteCount(3).
+		Save(ctx)
+	require.NoError(t, err)
+
+	// Create votes to test dynamic vote counting
+	_, err = testDB.Client.Vote.Create().
+		SetPollID(poll.ID).
+		SetOptionID(opt1.ID).
+		SetUserID(user.ID).
+		Save(ctx)
+	require.NoError(t, err)
+
+	// Create another user and vote
+	user2, err := testDB.Client.User.Create().
+		SetUsername("testuser2").
+		SetEmail("test2@example.com").
+		Save(ctx)
+	require.NoError(t, err)
+
+	_, err = testDB.Client.Vote.Create().
+		SetPollID(poll.ID).
+		SetOptionID(opt2.ID).
+		SetUserID(user2.ID).
 		Save(ctx)
 	require.NoError(t, err)
 
@@ -92,91 +112,105 @@ func TestHandleListPolls_WithPolls(t *testing.T) {
 	assert.Equal(t, poll.ID, polls[0].ID)
 	assert.Equal(t, "Test Poll", polls[0].Title)
 	require.Len(t, polls[0].Options, 2)
-	assert.Equal(t, "Option 1", polls[0].Options[0].Text)
-	assert.Equal(t, 5, polls[0].Options[0].VoteCount)
-	assert.Equal(t, "Option 2", polls[0].Options[1].Text)
-	assert.Equal(t, 3, polls[0].Options[1].VoteCount)
+
+	// Check vote counts are calculated correctly
+	for _, opt := range polls[0].Options {
+		if opt.ID == opt1.ID {
+			assert.Equal(t, 1, opt.VoteCount)
+		} else if opt.ID == opt2.ID {
+			assert.Equal(t, 1, opt.VoteCount)
+		}
+	}
 }
 
-func TestHandleGetPoll_Success(t *testing.T) {
-	ctx := context.Background()
-	testDB := testutil.SetupTestDB(ctx, t)
-	defer testDB.Teardown(ctx)
+func TestHandleGetPoll(t *testing.T) {
+	tests := []struct {
+		name       string
+		setup      func(ctx context.Context, testDB *testutil.TestDB) int
+		pathID     string
+		wantStatus int
+		checkBody  func(t *testing.T, rec *httptest.ResponseRecorder)
+	}{
+		{
+			name: "success",
+			setup: func(ctx context.Context, testDB *testutil.TestDB) int {
+				user, _ := testDB.Client.User.Create().
+					SetUsername("testuser").
+					SetEmail("test@example.com").
+					Save(ctx)
+				poll, _ := testDB.Client.Poll.Create().
+					SetOwnerID(user.ID).
+					SetTitle("Test Poll").
+					Save(ctx)
+				testDB.Client.PollOption.Create().
+					SetPollID(poll.ID).
+					SetText("Option 1").
+					Save(ctx)
+				return poll.ID
+			},
+			pathID:     "", // Will be set from setup
+			wantStatus: http.StatusOK,
+			checkBody: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				var result server.PollResponse
+				err := json.Unmarshal(rec.Body.Bytes(), &result)
+				require.NoError(t, err)
+				assert.Equal(t, "Test Poll", result.Title)
+				require.Len(t, result.Options, 1)
+				assert.Equal(t, "Option 1", result.Options[0].Text)
+			},
+		},
+		{
+			name: "not found",
+			setup: func(ctx context.Context, testDB *testutil.TestDB) int {
+				return 99999
+			},
+			wantStatus: http.StatusNotFound,
+			checkBody: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				var errResp server.ErrorResponse
+				err := json.Unmarshal(rec.Body.Bytes(), &errResp)
+				require.NoError(t, err)
+				assert.Equal(t, "poll not found", errResp.Error)
+			},
+		},
+		{
+			name: "invalid ID",
+			setup: func(ctx context.Context, testDB *testutil.TestDB) int {
+				return 0 // Will use "invalid" as path
+			},
+			pathID:     "invalid",
+			wantStatus: http.StatusBadRequest,
+			checkBody: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				var errResp server.ErrorResponse
+				err := json.Unmarshal(rec.Body.Bytes(), &errResp)
+				require.NoError(t, err)
+				assert.Equal(t, "invalid poll id", errResp.Error)
+			},
+		},
+	}
 
-	// Create test user
-	user, err := testDB.Client.User.Create().
-		SetUsername("testuser").
-		SetEmail("test@example.com").
-		Save(ctx)
-	require.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			testDB := testutil.SetupTestDB(ctx, t)
+			defer testDB.Teardown(ctx)
 
-	// Create test poll
-	poll, err := testDB.Client.Poll.Create().
-		SetOwnerID(user.ID).
-		SetTitle("Test Poll").
-		Save(ctx)
-	require.NoError(t, err)
+			pollID := tt.setup(ctx, testDB)
+			pathID := tt.pathID
+			if pathID == "" {
+				pathID = fmt.Sprintf("%d", pollID)
+			}
 
-	// Create test option
-	_, err = testDB.Client.PollOption.Create().
-		SetPollID(poll.ID).
-		SetText("Option 1").
-		SetVoteCount(5).
-		Save(ctx)
-	require.NoError(t, err)
+			logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+			req := httptest.NewRequest(http.MethodGet, "/polls/"+pathID, nil)
+			req.SetPathValue("id", pathID)
+			rec := httptest.NewRecorder()
 
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/polls/%d", poll.ID), nil)
-	req.SetPathValue("id", fmt.Sprintf("%d", poll.ID))
-	rec := httptest.NewRecorder()
+			handler := server.HandleGetPoll(logger, testDB.Client)
+			handler.ServeHTTP(rec, req)
 
-	handler := server.HandleGetPoll(logger, testDB.Client)
-	handler.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
-
-	var result server.PollResponse
-	err = json.Unmarshal(rec.Body.Bytes(), &result)
-	require.NoError(t, err)
-
-	assert.Equal(t, poll.ID, result.ID)
-	assert.Equal(t, "Test Poll", result.Title)
-	require.Len(t, result.Options, 1)
-	assert.Equal(t, "Option 1", result.Options[0].Text)
-}
-
-func TestHandleGetPoll_NotFound(t *testing.T) {
-	ctx := context.Background()
-	testDB := testutil.SetupTestDB(ctx, t)
-	defer testDB.Teardown(ctx)
-
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-
-	req := httptest.NewRequest(http.MethodGet, "/polls/99999", nil)
-	req.SetPathValue("id", "99999")
-	rec := httptest.NewRecorder()
-
-	handler := server.HandleGetPoll(logger, testDB.Client)
-	handler.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusNotFound, rec.Code)
-}
-
-func TestHandleGetPoll_InvalidID(t *testing.T) {
-	ctx := context.Background()
-	testDB := testutil.SetupTestDB(ctx, t)
-	defer testDB.Teardown(ctx)
-
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-
-	req := httptest.NewRequest(http.MethodGet, "/polls/invalid", nil)
-	req.SetPathValue("id", "invalid")
-	rec := httptest.NewRecorder()
-
-	handler := server.HandleGetPoll(logger, testDB.Client)
-	handler.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
+			assert.Equal(t, tt.wantStatus, rec.Code)
+			tt.checkBody(t, rec)
+		})
+	}
 }

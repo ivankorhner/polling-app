@@ -49,14 +49,12 @@ func TestHandleVote_Success(t *testing.T) {
 	option1, err := testDB.Client.PollOption.Create().
 		SetPollID(poll.ID).
 		SetText("Option 1").
-		SetVoteCount(0).
 		Save(ctx)
 	require.NoError(t, err)
 
 	_, err = testDB.Client.PollOption.Create().
 		SetPollID(poll.ID).
 		SetText("Option 2").
-		SetVoteCount(0).
 		Save(ctx)
 	require.NoError(t, err)
 
@@ -116,7 +114,6 @@ func TestHandleVote_DuplicateVote(t *testing.T) {
 	option, err := testDB.Client.PollOption.Create().
 		SetPollID(poll.ID).
 		SetText("Option 1").
-		SetVoteCount(0).
 		Save(ctx)
 	require.NoError(t, err)
 
@@ -142,152 +139,148 @@ func TestHandleVote_DuplicateVote(t *testing.T) {
 	assert.Equal(t, http.StatusConflict, rec.Code)
 }
 
-func TestHandleVote_PollNotFound(t *testing.T) {
-	ctx := context.Background()
-	testDB := testutil.SetupTestDB(ctx, t)
-	defer testDB.Teardown(ctx)
+func TestHandleVote_Validation(t *testing.T) {
+	tests := []struct {
+		name       string
+		body       string
+		pathID     string
+		wantStatus int
+		wantError  string
+	}{
+		{
+			name:       "missing option_id",
+			body:       `{"user_id": 1}`,
+			pathID:     "1",
+			wantStatus: http.StatusBadRequest,
+			wantError:  "option_id is required",
+		},
+		{
+			name:       "missing user_id",
+			body:       `{"option_id": 1}`,
+			pathID:     "1",
+			wantStatus: http.StatusBadRequest,
+			wantError:  "user_id is required",
+		},
+		{
+			name:       "invalid poll ID",
+			body:       `{"option_id": 1, "user_id": 1}`,
+			pathID:     "invalid",
+			wantStatus: http.StatusBadRequest,
+			wantError:  "invalid poll id",
+		},
+		{
+			name:       "invalid JSON",
+			body:       `{invalid}`,
+			pathID:     "1",
+			wantStatus: http.StatusBadRequest,
+			wantError:  "invalid request body",
+		},
+	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			testDB := testutil.SetupTestDB(ctx, t)
+			defer testDB.Teardown(ctx)
 
-	body := `{"option_id": 1, "user_id": 1}`
-	req := httptest.NewRequest(http.MethodPost, "/polls/99999/vote", bytes.NewBufferString(body))
-	req.SetPathValue("id", "99999")
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
+			logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	handler := server.HandleVote(logger, testDB.Client)
-	handler.ServeHTTP(rec, req)
+			req := httptest.NewRequest(http.MethodPost, "/polls/"+tt.pathID+"/vote", bytes.NewBufferString(tt.body))
+			req.SetPathValue("id", tt.pathID)
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
 
-	assert.Equal(t, http.StatusNotFound, rec.Code)
+			handler := server.HandleVote(logger, testDB.Client)
+			handler.ServeHTTP(rec, req)
+
+			assert.Equal(t, tt.wantStatus, rec.Code)
+
+			var errResp server.ErrorResponse
+			err := json.Unmarshal(rec.Body.Bytes(), &errResp)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantError, errResp.Error)
+		})
+	}
 }
 
-func TestHandleVote_OptionNotFound(t *testing.T) {
-	ctx := context.Background()
-	testDB := testutil.SetupTestDB(ctx, t)
-	defer testDB.Teardown(ctx)
+func TestHandleVote_NotFound(t *testing.T) {
+	tests := []struct {
+		name       string
+		setup      func(ctx context.Context, testDB *testutil.TestDB) (pollID int, optionID int, userID int)
+		wantStatus int
+		wantError  string
+	}{
+		{
+			name: "poll not found",
+			setup: func(ctx context.Context, testDB *testutil.TestDB) (int, int, int) {
+				return 99999, 1, 1
+			},
+			wantStatus: http.StatusNotFound,
+			wantError:  "poll not found",
+		},
+		{
+			name: "option not found",
+			setup: func(ctx context.Context, testDB *testutil.TestDB) (int, int, int) {
+				user, _ := testDB.Client.User.Create().
+					SetUsername("voter").
+					SetEmail("voter@example.com").
+					Save(ctx)
+				poll, _ := testDB.Client.Poll.Create().
+					SetOwnerID(user.ID).
+					SetTitle("Test Poll").
+					Save(ctx)
+				return poll.ID, 99999, user.ID
+			},
+			wantStatus: http.StatusBadRequest,
+			wantError:  "option not found or does not belong to poll",
+		},
+		{
+			name: "user not found",
+			setup: func(ctx context.Context, testDB *testutil.TestDB) (int, int, int) {
+				owner, _ := testDB.Client.User.Create().
+					SetUsername("owner").
+					SetEmail("owner@example.com").
+					Save(ctx)
+				poll, _ := testDB.Client.Poll.Create().
+					SetOwnerID(owner.ID).
+					SetTitle("Test Poll").
+					Save(ctx)
+				option, _ := testDB.Client.PollOption.Create().
+					SetPollID(poll.ID).
+					SetText("Option 1").
+					Save(ctx)
+				return poll.ID, option.ID, 99999
+			},
+			wantStatus: http.StatusBadRequest,
+			wantError:  "user not found",
+		},
+	}
 
-	// Create user
-	user, err := testDB.Client.User.Create().
-		SetUsername("voter").
-		SetEmail("voter@example.com").
-		Save(ctx)
-	require.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			testDB := testutil.SetupTestDB(ctx, t)
+			defer testDB.Teardown(ctx)
 
-	// Create poll
-	poll, err := testDB.Client.Poll.Create().
-		SetOwnerID(user.ID).
-		SetTitle("Test Poll").
-		Save(ctx)
-	require.NoError(t, err)
+			pollID, optionID, userID := tt.setup(ctx, testDB)
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+			logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	body := fmt.Sprintf(`{"option_id": 99999, "user_id": %d}`, user.ID)
-	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/polls/%d/vote", poll.ID), bytes.NewBufferString(body))
-	req.SetPathValue("id", fmt.Sprintf("%d", poll.ID))
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
+			body := fmt.Sprintf(`{"option_id": %d, "user_id": %d}`, optionID, userID)
+			req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/polls/%d/vote", pollID), bytes.NewBufferString(body))
+			req.SetPathValue("id", fmt.Sprintf("%d", pollID))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
 
-	handler := server.HandleVote(logger, testDB.Client)
-	handler.ServeHTTP(rec, req)
+			handler := server.HandleVote(logger, testDB.Client)
+			handler.ServeHTTP(rec, req)
 
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-}
+			assert.Equal(t, tt.wantStatus, rec.Code)
 
-func TestHandleVote_UserNotFound(t *testing.T) {
-	ctx := context.Background()
-	testDB := testutil.SetupTestDB(ctx, t)
-	defer testDB.Teardown(ctx)
-
-	// Create poll owner
-	owner, err := testDB.Client.User.Create().
-		SetUsername("owner").
-		SetEmail("owner@example.com").
-		Save(ctx)
-	require.NoError(t, err)
-
-	// Create poll
-	poll, err := testDB.Client.Poll.Create().
-		SetOwnerID(owner.ID).
-		SetTitle("Test Poll").
-		Save(ctx)
-	require.NoError(t, err)
-
-	// Create option
-	option, err := testDB.Client.PollOption.Create().
-		SetPollID(poll.ID).
-		SetText("Option 1").
-		SetVoteCount(0).
-		Save(ctx)
-	require.NoError(t, err)
-
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-
-	body := fmt.Sprintf(`{"option_id": %d, "user_id": 99999}`, option.ID)
-	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/polls/%d/vote", poll.ID), bytes.NewBufferString(body))
-	req.SetPathValue("id", fmt.Sprintf("%d", poll.ID))
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-
-	handler := server.HandleVote(logger, testDB.Client)
-	handler.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-}
-
-func TestHandleVote_MissingOptionID(t *testing.T) {
-	ctx := context.Background()
-	testDB := testutil.SetupTestDB(ctx, t)
-	defer testDB.Teardown(ctx)
-
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-
-	body := `{"user_id": 1}`
-	req := httptest.NewRequest(http.MethodPost, "/polls/1/vote", bytes.NewBufferString(body))
-	req.SetPathValue("id", "1")
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-
-	handler := server.HandleVote(logger, testDB.Client)
-	handler.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-}
-
-func TestHandleVote_MissingUserID(t *testing.T) {
-	ctx := context.Background()
-	testDB := testutil.SetupTestDB(ctx, t)
-	defer testDB.Teardown(ctx)
-
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-
-	body := `{"option_id": 1}`
-	req := httptest.NewRequest(http.MethodPost, "/polls/1/vote", bytes.NewBufferString(body))
-	req.SetPathValue("id", "1")
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-
-	handler := server.HandleVote(logger, testDB.Client)
-	handler.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-}
-
-func TestHandleVote_InvalidPollID(t *testing.T) {
-	ctx := context.Background()
-	testDB := testutil.SetupTestDB(ctx, t)
-	defer testDB.Teardown(ctx)
-
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-
-	body := `{"option_id": 1, "user_id": 1}`
-	req := httptest.NewRequest(http.MethodPost, "/polls/invalid/vote", bytes.NewBufferString(body))
-	req.SetPathValue("id", "invalid")
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-
-	handler := server.HandleVote(logger, testDB.Client)
-	handler.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
+			var errResp server.ErrorResponse
+			err := json.Unmarshal(rec.Body.Bytes(), &errResp)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantError, errResp.Error)
+		})
+	}
 }

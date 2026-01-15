@@ -34,20 +34,6 @@ func (_c *PollOptionCreate) SetText(v string) *PollOptionCreate {
 	return _c
 }
 
-// SetVoteCount sets the "vote_count" field.
-func (_c *PollOptionCreate) SetVoteCount(v int) *PollOptionCreate {
-	_c.mutation.SetVoteCount(v)
-	return _c
-}
-
-// SetNillableVoteCount sets the "vote_count" field if the given value is not nil.
-func (_c *PollOptionCreate) SetNillableVoteCount(v *int) *PollOptionCreate {
-	if v != nil {
-		_c.SetVoteCount(*v)
-	}
-	return _c
-}
-
 // SetCreatedAt sets the "created_at" field.
 func (_c *PollOptionCreate) SetCreatedAt(v time.Time) *PollOptionCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -123,10 +109,6 @@ func (_c *PollOptionCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *PollOptionCreate) defaults() {
-	if _, ok := _c.mutation.VoteCount(); !ok {
-		v := polloption.DefaultVoteCount
-		_c.mutation.SetVoteCount(v)
-	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := polloption.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
@@ -144,14 +126,6 @@ func (_c *PollOptionCreate) check() error {
 	if v, ok := _c.mutation.Text(); ok {
 		if err := polloption.TextValidator(v); err != nil {
 			return &ValidationError{Name: "text", err: fmt.Errorf(`ent: validator failed for field "PollOption.text": %w`, err)}
-		}
-	}
-	if _, ok := _c.mutation.VoteCount(); !ok {
-		return &ValidationError{Name: "vote_count", err: errors.New(`ent: missing required field "PollOption.vote_count"`)}
-	}
-	if v, ok := _c.mutation.VoteCount(); ok {
-		if err := polloption.VoteCountValidator(v); err != nil {
-			return &ValidationError{Name: "vote_count", err: fmt.Errorf(`ent: validator failed for field "PollOption.vote_count": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
@@ -195,10 +169,6 @@ func (_c *PollOptionCreate) createSpec() (*PollOption, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Text(); ok {
 		_spec.SetField(polloption.FieldText, field.TypeString, value)
 		_node.Text = value
-	}
-	if value, ok := _c.mutation.VoteCount(); ok {
-		_spec.SetField(polloption.FieldVoteCount, field.TypeInt, value)
-		_node.VoteCount = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(polloption.FieldCreatedAt, field.TypeTime, value)

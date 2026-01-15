@@ -18,8 +18,6 @@ const (
 	FieldPollID = "poll_id"
 	// FieldText holds the string denoting the text field in the database.
 	FieldText = "text"
-	// FieldVoteCount holds the string denoting the vote_count field in the database.
-	FieldVoteCount = "vote_count"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgePoll holds the string denoting the poll edge name in mutations.
@@ -49,7 +47,6 @@ var Columns = []string{
 	FieldID,
 	FieldPollID,
 	FieldText,
-	FieldVoteCount,
 	FieldCreatedAt,
 }
 
@@ -66,10 +63,6 @@ func ValidColumn(column string) bool {
 var (
 	// TextValidator is a validator for the "text" field. It is called by the builders before save.
 	TextValidator func(string) error
-	// DefaultVoteCount holds the default value on creation for the "vote_count" field.
-	DefaultVoteCount int
-	// VoteCountValidator is a validator for the "vote_count" field. It is called by the builders before save.
-	VoteCountValidator func(int) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 )
@@ -90,11 +83,6 @@ func ByPollID(opts ...sql.OrderTermOption) OrderOption {
 // ByText orders the results by the text field.
 func ByText(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldText, opts...).ToFunc()
-}
-
-// ByVoteCount orders the results by the vote_count field.
-func ByVoteCount(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldVoteCount, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

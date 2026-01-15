@@ -32,14 +32,8 @@ func init() {
 	polloptionDescText := polloptionFields[2].Descriptor()
 	// polloption.TextValidator is a validator for the "text" field. It is called by the builders before save.
 	polloption.TextValidator = polloptionDescText.Validators[0].(func(string) error)
-	// polloptionDescVoteCount is the schema descriptor for vote_count field.
-	polloptionDescVoteCount := polloptionFields[3].Descriptor()
-	// polloption.DefaultVoteCount holds the default value on creation for the vote_count field.
-	polloption.DefaultVoteCount = polloptionDescVoteCount.Default.(int)
-	// polloption.VoteCountValidator is a validator for the "vote_count" field. It is called by the builders before save.
-	polloption.VoteCountValidator = polloptionDescVoteCount.Validators[0].(func(int) error)
 	// polloptionDescCreatedAt is the schema descriptor for created_at field.
-	polloptionDescCreatedAt := polloptionFields[4].Descriptor()
+	polloptionDescCreatedAt := polloptionFields[3].Descriptor()
 	// polloption.DefaultCreatedAt holds the default value on creation for the created_at field.
 	polloption.DefaultCreatedAt = polloptionDescCreatedAt.Default.(func() time.Time)
 	userFields := schema.User{}.Fields()

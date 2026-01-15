@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"entgo.io/ent"
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -44,13 +45,15 @@ func (Vote) Edges() []ent.Edge {
 			Field("option_id").
 			Required().
 			Unique().
-			Immutable(),
+			Immutable().
+			Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.From("user", User.Type).
 			Ref("votes").
 			Field("user_id").
 			Required().
 			Unique().
-			Immutable(),
+			Immutable().
+			Annotations(entsql.OnDelete(entsql.Cascade)),
 	}
 }
 

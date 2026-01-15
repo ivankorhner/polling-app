@@ -65,11 +65,6 @@ func Text(v string) predicate.PollOption {
 	return predicate.PollOption(sql.FieldEQ(FieldText, v))
 }
 
-// VoteCount applies equality check predicate on the "vote_count" field. It's identical to VoteCountEQ.
-func VoteCount(v int) predicate.PollOption {
-	return predicate.PollOption(sql.FieldEQ(FieldVoteCount, v))
-}
-
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.PollOption {
 	return predicate.PollOption(sql.FieldEQ(FieldCreatedAt, v))
@@ -158,46 +153,6 @@ func TextEqualFold(v string) predicate.PollOption {
 // TextContainsFold applies the ContainsFold predicate on the "text" field.
 func TextContainsFold(v string) predicate.PollOption {
 	return predicate.PollOption(sql.FieldContainsFold(FieldText, v))
-}
-
-// VoteCountEQ applies the EQ predicate on the "vote_count" field.
-func VoteCountEQ(v int) predicate.PollOption {
-	return predicate.PollOption(sql.FieldEQ(FieldVoteCount, v))
-}
-
-// VoteCountNEQ applies the NEQ predicate on the "vote_count" field.
-func VoteCountNEQ(v int) predicate.PollOption {
-	return predicate.PollOption(sql.FieldNEQ(FieldVoteCount, v))
-}
-
-// VoteCountIn applies the In predicate on the "vote_count" field.
-func VoteCountIn(vs ...int) predicate.PollOption {
-	return predicate.PollOption(sql.FieldIn(FieldVoteCount, vs...))
-}
-
-// VoteCountNotIn applies the NotIn predicate on the "vote_count" field.
-func VoteCountNotIn(vs ...int) predicate.PollOption {
-	return predicate.PollOption(sql.FieldNotIn(FieldVoteCount, vs...))
-}
-
-// VoteCountGT applies the GT predicate on the "vote_count" field.
-func VoteCountGT(v int) predicate.PollOption {
-	return predicate.PollOption(sql.FieldGT(FieldVoteCount, v))
-}
-
-// VoteCountGTE applies the GTE predicate on the "vote_count" field.
-func VoteCountGTE(v int) predicate.PollOption {
-	return predicate.PollOption(sql.FieldGTE(FieldVoteCount, v))
-}
-
-// VoteCountLT applies the LT predicate on the "vote_count" field.
-func VoteCountLT(v int) predicate.PollOption {
-	return predicate.PollOption(sql.FieldLT(FieldVoteCount, v))
-}
-
-// VoteCountLTE applies the LTE predicate on the "vote_count" field.
-func VoteCountLTE(v int) predicate.PollOption {
-	return predicate.PollOption(sql.FieldLTE(FieldVoteCount, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

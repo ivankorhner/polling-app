@@ -4,16 +4,19 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/ivankorhner/polling-app/internal/ent"
 )
 
+// RegisterUserRequest represents the request body for user registration
 type RegisterUserRequest struct {
 	Username string `json:"username"`
 	Email    string `json:"email"`
 }
 
+// UserResponse represents the response for user operations
 type UserResponse struct {
 	ID        int       `json:"id"`
 	Username  string    `json:"username"`
@@ -21,22 +24,35 @@ type UserResponse struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// HandleRegisterUser handles user registration
 func HandleRegisterUser(logger *slog.Logger, client *ent.Client) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger.LogAttrs(r.Context(), slog.LevelInfo, "register user: starting")
+
+		// Limit request body size
+		r.Body = http.MaxBytesReader(w, r.Body, MaxRequestBodySize)
+
 		var req RegisterUserRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "invalid request body", http.StatusBadRequest)
+			writeValidationError(w, "invalid request body")
 			return
 		}
 
-		if req.Username == "" {
-			http.Error(w, "username is required", http.StatusBadRequest)
+		// Validate username
+		if errMsg := ValidateUsername(req.Username); errMsg != "" {
+			writeValidationError(w, errMsg)
 			return
 		}
-		if req.Email == "" {
-			http.Error(w, "email is required", http.StatusBadRequest)
+
+		// Validate email
+		if errMsg := ValidateEmail(req.Email); errMsg != "" {
+			writeValidationError(w, errMsg)
 			return
 		}
+
+		// Normalize inputs
+		req.Username = strings.TrimSpace(req.Username)
+		req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 
 		user, err := client.User.Create().
 			SetUsername(req.Username).
@@ -44,7 +60,7 @@ func HandleRegisterUser(logger *slog.Logger, client *ent.Client) http.Handler {
 			Save(r.Context())
 		if err != nil {
 			if ent.IsConstraintError(err) {
-				http.Error(w, "username or email already exists", http.StatusConflict)
+				writeConflictError(w, "username or email already exists")
 				return
 			}
 			logger.LogAttrs(
@@ -53,9 +69,17 @@ func HandleRegisterUser(logger *slog.Logger, client *ent.Client) http.Handler {
 				"failed to create user",
 				slog.String("error", err.Error()),
 			)
-			http.Error(w, "failed to create user", http.StatusInternalServerError)
+			writeInternalError(w, "failed to create user")
 			return
 		}
+
+		logger.LogAttrs(
+			r.Context(),
+			slog.LevelInfo,
+			"register user: completed",
+			slog.Int("user_id", user.ID),
+			slog.String("username", user.Username),
+		)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)

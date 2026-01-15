@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"entgo.io/ent"
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
@@ -33,8 +34,11 @@ func (Poll) Edges() []ent.Edge {
 			Ref("polls").
 			Field("owner_id").
 			Unique().
-			Required(),
-		edge.To("options", PollOption.Type),
-		edge.To("votes", Vote.Type),
+			Required().
+			Annotations(entsql.OnDelete(entsql.Cascade)),
+		edge.To("options", PollOption.Type).
+			Annotations(entsql.OnDelete(entsql.Cascade)),
+		edge.To("votes", Vote.Type).
+			Annotations(entsql.OnDelete(entsql.Cascade)),
 	}
 }

@@ -1,0 +1,85 @@
+# golangci-lint configuration
+# See: https://golangci-lint.run/usage/configuration/
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - gosimple
+    - ineffassign
+    - unused
+    - misspell
+    - gofmt
+    - goimports
+    - gocritic
+    - revive
+    - bodyclose
+    - noctx
+    - sqlclosecheck
+    - copyloopvar
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: false
+
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment # Too strict for this project
+
+  gofmt:
+    simplify: true
+
+  goimports:
+    local-prefixes: github.com/ivankorhner/polling-app
+
+  misspell:
+    locale: US
+
+  revive:
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: increment-decrement
+      - name: var-naming
+      - name: package-comments
+        disabled: true
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+    disabled-checks:
+      - hugeParam # Can be too strict
+
+issues:
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gocritic
+    # Exclude generated Ent files
+    - path: internal/ent/
+      linters:
+        - gocritic
+        - revive
+        - govet

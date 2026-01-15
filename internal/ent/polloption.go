@@ -22,8 +22,6 @@ type PollOption struct {
 	PollID int `json:"poll_id,omitempty"`
 	// Text holds the value of the "text" field.
 	Text string `json:"text,omitempty"`
-	// VoteCount holds the value of the "vote_count" field.
-	VoteCount int `json:"vote_count,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -68,7 +66,7 @@ func (*PollOption) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case polloption.FieldID, polloption.FieldPollID, polloption.FieldVoteCount:
+		case polloption.FieldID, polloption.FieldPollID:
 			values[i] = new(sql.NullInt64)
 		case polloption.FieldText:
 			values[i] = new(sql.NullString)
@@ -106,12 +104,6 @@ func (_m *PollOption) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field text", values[i])
 			} else if value.Valid {
 				_m.Text = value.String
-			}
-		case polloption.FieldVoteCount:
-			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for field vote_count", values[i])
-			} else if value.Valid {
-				_m.VoteCount = int(value.Int64)
 			}
 		case polloption.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -170,9 +162,6 @@ func (_m *PollOption) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("text=")
 	builder.WriteString(_m.Text)
-	builder.WriteString(", ")
-	builder.WriteString("vote_count=")
-	builder.WriteString(fmt.Sprintf("%v", _m.VoteCount))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

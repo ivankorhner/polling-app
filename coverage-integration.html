@@ -159,19 +159,23 @@
 				
 				<option value="file51">github.com/ivankorhner/polling-app/internal/server/middleware/timeout.go (0.0%)</option>
 				
-				<option value="file52">github.com/ivankorhner/polling-app/internal/server/pollscreate.go (68.6%)</option>
+				<option value="file52">github.com/ivankorhner/polling-app/internal/server/pollscreate.go (73.6%)</option>
 				
-				<option value="file53">github.com/ivankorhner/polling-app/internal/server/pollsdelete.go (62.9%)</option>
+				<option value="file53">github.com/ivankorhner/polling-app/internal/server/pollsdelete.go (70.6%)</option>
 				
-				<option value="file54">github.com/ivankorhner/polling-app/internal/server/pollsget.go (76.5%)</option>
+				<option value="file54">github.com/ivankorhner/polling-app/internal/server/pollsget.go (80.5%)</option>
 				
-				<option value="file55">github.com/ivankorhner/polling-app/internal/server/routes.go (0.0%)</option>
+				<option value="file55">github.com/ivankorhner/polling-app/internal/server/response.go (85.7%)</option>
 				
-				<option value="file56">github.com/ivankorhner/polling-app/internal/server/users.go (83.3%)</option>
+				<option value="file56">github.com/ivankorhner/polling-app/internal/server/routes.go (0.0%)</option>
 				
-				<option value="file57">github.com/ivankorhner/polling-app/internal/server/votes.go (69.1%)</option>
+				<option value="file57">github.com/ivankorhner/polling-app/internal/server/users.go (86.2%)</option>
 				
-				<option value="file58">github.com/ivankorhner/polling-app/internal/testutil/testdb.go (0.0%)</option>
+				<option value="file58">github.com/ivankorhner/polling-app/internal/server/validation.go (100.0%)</option>
+				
+				<option value="file59">github.com/ivankorhner/polling-app/internal/server/votes.go (74.6%)</option>
+				
+				<option value="file60">github.com/ivankorhner/polling-app/internal/testutil/testdb.go (0.0%)</option>
 				
 				</select>
 			</div>
@@ -198,8 +202,12 @@
 
 import (
         "context"
+        "database/sql"
         "log/slog"
+        "os"
 
+        "entgo.io/ent/dialect"
+        entsql "entgo.io/ent/dialect/sql"
         _ "github.com/jackc/pgx/v5/stdlib"
 
         "github.com/ivankorhner/polling-app/internal/config"
@@ -212,13 +220,23 @@ func main() <span class="cov0" title="0">{
         cfg := config.LoadConfig()
         logger := logging.NewLogger(slog.LevelInfo)
 
-        // Connect to database
-        client, err := ent.Open("pgx", cfg.DatabaseURL())
-        if err != nil </span><span class="cov0" title="0">{
-                logger.LogAttrs(ctx, slog.LevelError, "failed to open database", slog.Any("error", err))
-                return
+        if err := run(ctx, cfg, logger); err != nil </span><span class="cov0" title="0">{
+                logger.LogAttrs(ctx, slog.LevelError, "seed failed", slog.Any("error", err))
+                os.Exit(1)
         }</span>
-        <span class="cov0" title="0">defer client.Close()
+}
+
+func run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error <span class="cov0" title="0">{
+        // Connect to database
+        db, err := sql.Open("pgx", cfg.DatabaseURL())
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">defer db.Close()
+
+        drv := entsql.OpenDB(dialect.Postgres, db)
+        client := ent.NewClient(ent.Driver(drv))
+        defer client.Close()
 
         logger.Info("seeding database with demo data")
 
@@ -228,8 +246,7 @@ func main() <span class="cov0" title="0">{
                 SetEmail("alice@example.com").
                 Save(ctx)
         if err != nil </span><span class="cov0" title="0">{
-                logger.LogAttrs(ctx, slog.LevelError, "failed to create user1", slog.Any("error", err))
-                return
+                return err
         }</span>
 
         <span class="cov0" title="0">user2, err := client.User.Create().
@@ -237,8 +254,7 @@ func main() <span class="cov0" title="0">{
                 SetEmail("bob@example.com").
                 Save(ctx)
         if err != nil </span><span class="cov0" title="0">{
-                logger.LogAttrs(ctx, slog.LevelError, "failed to create user2", slog.Any("error", err))
-                return
+                return err
         }</span>
 
         // Create polls
@@ -247,8 +263,7 @@ func main() <span class="cov0" title="0">{
                 SetTitle("What's your favorite programming language?").
                 Save(ctx)
         if err != nil </span><span class="cov0" title="0">{
-                logger.LogAttrs(ctx, slog.LevelError, "failed to create poll1", slog.Any("error", err))
-                return
+                return err
         }</span>
 
         <span class="cov0" title="0">poll2, err := client.Poll.Create().
@@ -256,71 +271,59 @@ func main() <span class="cov0" title="0">{
                 SetTitle("Best web framework?").
                 Save(ctx)
         if err != nil </span><span class="cov0" title="0">{
-                logger.LogAttrs(ctx, slog.LevelError, "failed to create poll2", slog.Any("error", err))
-                return
+                return err
         }</span>
 
         // Create poll options for poll1
         <span class="cov0" title="0">opt1, err := client.PollOption.Create().
                 SetPollID(poll1.ID).
                 SetText("Go").
-                SetVoteCount(0).
                 Save(ctx)
         if err != nil </span><span class="cov0" title="0">{
-                logger.LogAttrs(ctx, slog.LevelError, "failed to create option1", slog.Any("error", err))
-                return
+                return err
         }</span>
 
         <span class="cov0" title="0">opt2, err := client.PollOption.Create().
                 SetPollID(poll1.ID).
                 SetText("Rust").
-                SetVoteCount(0).
                 Save(ctx)
         if err != nil </span><span class="cov0" title="0">{
-                logger.LogAttrs(ctx, slog.LevelError, "failed to create option2", slog.Any("error", err))
-                return
+                return err
         }</span>
 
         <span class="cov0" title="0">_, err = client.PollOption.Create().
                 SetPollID(poll1.ID).
                 SetText("Python").
-                SetVoteCount(0).
                 Save(ctx)
         if err != nil </span><span class="cov0" title="0">{
-                logger.LogAttrs(ctx, slog.LevelError, "failed to create option3", slog.Any("error", err))
-                return
+                return err
         }</span>
 
         // Create poll options for poll2
         <span class="cov0" title="0">_, err = client.PollOption.Create().
                 SetPollID(poll2.ID).
                 SetText("React").
-                SetVoteCount(0).
                 Save(ctx)
         if err != nil </span><span class="cov0" title="0">{
-                logger.LogAttrs(ctx, slog.LevelError, "failed to create option4", slog.Any("error", err))
-                return
+                return err
         }</span>
 
         <span class="cov0" title="0">_, err = client.PollOption.Create().
                 SetPollID(poll2.ID).
                 SetText("Vue").
-                SetVoteCount(0).
                 Save(ctx)
         if err != nil </span><span class="cov0" title="0">{
-                logger.LogAttrs(ctx, slog.LevelError, "failed to create option5", slog.Any("error", err))
-                return
+                return err
         }</span>
 
-        // Create votes
+        // Create votes (vote_count is now calculated dynamically)
         <span class="cov0" title="0">_, err = client.Vote.Create().
                 SetPollID(poll1.ID).
                 SetOptionID(opt1.ID).
                 SetUserID(user1.ID).
                 Save(ctx)
         if err != nil </span><span class="cov0" title="0">{
-                logger.LogAttrs(ctx, slog.LevelError, "failed to create vote1", slog.Any("error", err))
-                return
+                return err
         }</span>
 
         <span class="cov0" title="0">_, err = client.Vote.Create().
@@ -329,18 +332,7 @@ func main() <span class="cov0" title="0">{
                 SetUserID(user2.ID).
                 Save(ctx)
         if err != nil </span><span class="cov0" title="0">{
-                logger.LogAttrs(ctx, slog.LevelError, "failed to create vote2", slog.Any("error", err))
-                return
-        }</span>
-
-        // Update vote counts
-        <span class="cov0" title="0">if err := client.PollOption.UpdateOneID(opt1.ID).SetVoteCount(1).Exec(ctx); err != nil </span><span class="cov0" title="0">{
-                logger.LogAttrs(ctx, slog.LevelError, "failed to update option1 vote count", slog.Any("error", err))
-                return
-        }</span>
-        <span class="cov0" title="0">if err := client.PollOption.UpdateOneID(opt2.ID).SetVoteCount(1).Exec(ctx); err != nil </span><span class="cov0" title="0">{
-                logger.LogAttrs(ctx, slog.LevelError, "failed to update option2 vote count", slog.Any("error", err))
-                return
+                return err
         }</span>
 
         <span class="cov0" title="0">logger.Info("database seeded successfully",
@@ -348,7 +340,9 @@ func main() <span class="cov0" title="0">{
                 slog.Int("polls", 2),
                 slog.Int("options", 5),
                 slog.Int("votes", 2),
-        )</span>
+        )
+
+        return nil</span>
 }
 </pre>
 		
@@ -411,9 +405,12 @@ func run(
         )
 
         httpServer := &amp;http.Server{
-                Addr:     config.Addr(),
-                Handler:  server.AddRoutes(ctx, config, logger, client),
-                ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelInfo),
+                Addr:         config.Addr(),
+                Handler:      server.AddRoutes(ctx, config, logger, db, client),
+                ErrorLog:     slog.NewLogLogger(logger.Handler(), slog.LevelInfo),
+                ReadTimeout:  5 * time.Second,
+                WriteTimeout: 10 * time.Second,
+                IdleTimeout:  120 * time.Second,
         }
 
         serverErrors := make(chan error, 1)
@@ -473,11 +470,12 @@ import (
         "time"
 )
 
+// Config holds the application configuration
 type Config struct {
         // HTTP Server config
         Port       int
         Host       string
-        ApiTimeout time.Duration
+        APITimeout time.Duration
 
         // Database config
         DBHost     string
@@ -493,7 +491,7 @@ func LoadConfig() *Config <span class="cov0" title="0">{
                 // HTTP defaults
                 Port:       8080,
                 Host:       "localhost",
-                ApiTimeout: 30 * time.Second, // Increased from 1s to 30s
+                APITimeout: 30 * time.Second,
 
                 // Database defaults
                 DBHost:     "localhost",
@@ -516,7 +514,7 @@ func LoadConfig() *Config <span class="cov0" title="0">{
 
         <span class="cov0" title="0">if timeout := os.Getenv("API_TIMEOUT"); timeout != "" </span><span class="cov0" title="0">{
                 if t, err := time.ParseDuration(timeout); err == nil </span><span class="cov0" title="0">{
-                        cfg.ApiTimeout = t
+                        cfg.APITimeout = t
                 }</span>
         }
 
@@ -2535,7 +2533,6 @@ var (
         PollOptionsColumns = []*schema.Column{
                 {Name: "id", Type: field.TypeInt, Increment: true},
                 {Name: "text", Type: field.TypeString},
-                {Name: "vote_count", Type: field.TypeInt, Default: 0},
                 {Name: "created_at", Type: field.TypeTime},
                 {Name: "poll_id", Type: field.TypeInt},
         }
@@ -2547,9 +2544,9 @@ var (
                 ForeignKeys: []*schema.ForeignKey{
                         {
                                 Symbol:     "poll_options_polls_options",
-                                Columns:    []*schema.Column{PollOptionsColumns[4]},
+                                Columns:    []*schema.Column{PollOptionsColumns[3]},
                                 RefColumns: []*schema.Column{PollsColumns[0]},
-                                OnDelete:   schema.NoAction,
+                                OnDelete:   schema.Cascade,
                         },
                 },
         }
@@ -2584,7 +2581,7 @@ var (
                                 Symbol:     "votes_polls_votes",
                                 Columns:    []*schema.Column{VotesColumns[2]},
                                 RefColumns: []*schema.Column{PollsColumns[0]},
-                                OnDelete:   schema.NoAction,
+                                OnDelete:   schema.Cascade,
                         },
                         {
                                 Symbol:     "votes_poll_options_votes",
@@ -3332,8 +3329,6 @@ type PollOptionMutation struct {
         typ           string
         id            *int
         text          *string
-        vote_count    *int
-        addvote_count *int
         created_at    *time.Time
         clearedFields map[string]struct{}
         poll          *int
@@ -3522,62 +3517,6 @@ func (m *PollOptionMutation) ResetText() <span class="cov0" title="0">{
         m.text = nil
 }</span>
 
-// SetVoteCount sets the "vote_count" field.
-func (m *PollOptionMutation) SetVoteCount(i int) <span class="cov0" title="0">{
-        m.vote_count = &amp;i
-        m.addvote_count = nil
-}</span>
-
-// VoteCount returns the value of the "vote_count" field in the mutation.
-func (m *PollOptionMutation) VoteCount() (r int, exists bool) <span class="cov0" title="0">{
-        v := m.vote_count
-        if v == nil </span><span class="cov0" title="0">{
-                return
-        }</span>
-        <span class="cov0" title="0">return *v, true</span>
-}
-
-// OldVoteCount returns the old "vote_count" field's value of the PollOption entity.
-// If the PollOption object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *PollOptionMutation) OldVoteCount(ctx context.Context) (v int, err error) <span class="cov0" title="0">{
-        if !m.op.Is(OpUpdateOne) </span><span class="cov0" title="0">{
-                return v, errors.New("OldVoteCount is only allowed on UpdateOne operations")
-        }</span>
-        <span class="cov0" title="0">if m.id == nil || m.oldValue == nil </span><span class="cov0" title="0">{
-                return v, errors.New("OldVoteCount requires an ID field in the mutation")
-        }</span>
-        <span class="cov0" title="0">oldValue, err := m.oldValue(ctx)
-        if err != nil </span><span class="cov0" title="0">{
-                return v, fmt.Errorf("querying old value for OldVoteCount: %w", err)
-        }</span>
-        <span class="cov0" title="0">return oldValue.VoteCount, nil</span>
-}
-
-// AddVoteCount adds i to the "vote_count" field.
-func (m *PollOptionMutation) AddVoteCount(i int) <span class="cov0" title="0">{
-        if m.addvote_count != nil </span><span class="cov0" title="0">{
-                *m.addvote_count += i
-        }</span> else<span class="cov0" title="0"> {
-                m.addvote_count = &amp;i
-        }</span>
-}
-
-// AddedVoteCount returns the value that was added to the "vote_count" field in this mutation.
-func (m *PollOptionMutation) AddedVoteCount() (r int, exists bool) <span class="cov0" title="0">{
-        v := m.addvote_count
-        if v == nil </span><span class="cov0" title="0">{
-                return
-        }</span>
-        <span class="cov0" title="0">return *v, true</span>
-}
-
-// ResetVoteCount resets all changes to the "vote_count" field.
-func (m *PollOptionMutation) ResetVoteCount() <span class="cov0" title="0">{
-        m.vote_count = nil
-        m.addvote_count = nil
-}</span>
-
 // SetCreatedAt sets the "created_at" field.
 func (m *PollOptionMutation) SetCreatedAt(t time.Time) <span class="cov0" title="0">{
         m.created_at = &amp;t
@@ -3729,15 +3668,12 @@ func (m *PollOptionMutation) Type() string <span class="cov0" title="0">{
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *PollOptionMutation) Fields() []string <span class="cov0" title="0">{
-        fields := make([]string, 0, 4)
+        fields := make([]string, 0, 3)
         if m.poll != nil </span><span class="cov0" title="0">{
                 fields = append(fields, polloption.FieldPollID)
         }</span>
         <span class="cov0" title="0">if m.text != nil </span><span class="cov0" title="0">{
                 fields = append(fields, polloption.FieldText)
-        }</span>
-        <span class="cov0" title="0">if m.vote_count != nil </span><span class="cov0" title="0">{
-                fields = append(fields, polloption.FieldVoteCount)
         }</span>
         <span class="cov0" title="0">if m.created_at != nil </span><span class="cov0" title="0">{
                 fields = append(fields, polloption.FieldCreatedAt)
@@ -3754,8 +3690,6 @@ func (m *PollOptionMutation) Field(name string) (ent.Value, bool) <span class="c
                 return m.PollID()</span>
         case polloption.FieldText:<span class="cov0" title="0">
                 return m.Text()</span>
-        case polloption.FieldVoteCount:<span class="cov0" title="0">
-                return m.VoteCount()</span>
         case polloption.FieldCreatedAt:<span class="cov0" title="0">
                 return m.CreatedAt()</span>
         }
@@ -3771,8 +3705,6 @@ func (m *PollOptionMutation) OldField(ctx context.Context, name string) (ent.Val
                 return m.OldPollID(ctx)</span>
         case polloption.FieldText:<span class="cov0" title="0">
                 return m.OldText(ctx)</span>
-        case polloption.FieldVoteCount:<span class="cov0" title="0">
-                return m.OldVoteCount(ctx)</span>
         case polloption.FieldCreatedAt:<span class="cov0" title="0">
                 return m.OldCreatedAt(ctx)</span>
         }
@@ -3798,13 +3730,6 @@ func (m *PollOptionMutation) SetField(name string, value ent.Value) error <span 
                 }</span>
                 <span class="cov0" title="0">m.SetText(v)
                 return nil</span>
-        case polloption.FieldVoteCount:<span class="cov0" title="0">
-                v, ok := value.(int)
-                if !ok </span><span class="cov0" title="0">{
-                        return fmt.Errorf("unexpected type %T for field %s", value, name)
-                }</span>
-                <span class="cov0" title="0">m.SetVoteCount(v)
-                return nil</span>
         case polloption.FieldCreatedAt:<span class="cov0" title="0">
                 v, ok := value.(time.Time)
                 if !ok </span><span class="cov0" title="0">{
@@ -3820,19 +3745,14 @@ func (m *PollOptionMutation) SetField(name string, value ent.Value) error <span 
 // this mutation.
 func (m *PollOptionMutation) AddedFields() []string <span class="cov0" title="0">{
         var fields []string
-        if m.addvote_count != nil </span><span class="cov0" title="0">{
-                fields = append(fields, polloption.FieldVoteCount)
-        }</span>
-        <span class="cov0" title="0">return fields</span>
-}
+        return fields
+}</span>
 
 // AddedField returns the numeric value that was incremented/decremented on a field
 // with the given name. The second boolean return value indicates that this field
 // was not set, or was not defined in the schema.
 func (m *PollOptionMutation) AddedField(name string) (ent.Value, bool) <span class="cov0" title="0">{
         switch name </span>{
-        case polloption.FieldVoteCount:<span class="cov0" title="0">
-                return m.AddedVoteCount()</span>
         }
         <span class="cov0" title="0">return nil, false</span>
 }
@@ -3842,13 +3762,6 @@ func (m *PollOptionMutation) AddedField(name string) (ent.Value, bool) <span cla
 // type.
 func (m *PollOptionMutation) AddField(name string, value ent.Value) error <span class="cov0" title="0">{
         switch name </span>{
-        case polloption.FieldVoteCount:<span class="cov0" title="0">
-                v, ok := value.(int)
-                if !ok </span><span class="cov0" title="0">{
-                        return fmt.Errorf("unexpected type %T for field %s", value, name)
-                }</span>
-                <span class="cov0" title="0">m.AddVoteCount(v)
-                return nil</span>
         }
         <span class="cov0" title="0">return fmt.Errorf("unknown PollOption numeric field %s", name)</span>
 }
@@ -3881,9 +3794,6 @@ func (m *PollOptionMutation) ResetField(name string) error <span class="cov0" ti
                 return nil</span>
         case polloption.FieldText:<span class="cov0" title="0">
                 m.ResetText()
-                return nil</span>
-        case polloption.FieldVoteCount:<span class="cov0" title="0">
-                m.ResetVoteCount()
                 return nil</span>
         case polloption.FieldCreatedAt:<span class="cov0" title="0">
                 m.ResetCreatedAt()
@@ -7767,8 +7677,6 @@ type PollOption struct {
         PollID int `json:"poll_id,omitempty"`
         // Text holds the value of the "text" field.
         Text string `json:"text,omitempty"`
-        // VoteCount holds the value of the "vote_count" field.
-        VoteCount int `json:"vote_count,omitempty"`
         // CreatedAt holds the value of the "created_at" field.
         CreatedAt time.Time `json:"created_at,omitempty"`
         // Edges holds the relations/edges for other nodes in the graph.
@@ -7813,7 +7721,7 @@ func (*PollOption) scanValues(columns []string) ([]any, error) <span class="cov0
         values := make([]any, len(columns))
         for i := range columns </span><span class="cov0" title="0">{
                 switch columns[i] </span>{
-                case polloption.FieldID, polloption.FieldPollID, polloption.FieldVoteCount:<span class="cov0" title="0">
+                case polloption.FieldID, polloption.FieldPollID:<span class="cov0" title="0">
                         values[i] = new(sql.NullInt64)</span>
                 case polloption.FieldText:<span class="cov0" title="0">
                         values[i] = new(sql.NullString)</span>
@@ -7851,12 +7759,6 @@ func (_m *PollOption) assignValues(columns []string, values []any) error <span c
                                 return fmt.Errorf("unexpected type %T for field text", values[i])
                         }</span> else<span class="cov0" title="0"> if value.Valid </span><span class="cov0" title="0">{
                                 _m.Text = value.String
-                        }</span>
-                case polloption.FieldVoteCount:<span class="cov0" title="0">
-                        if value, ok := values[i].(*sql.NullInt64); !ok </span><span class="cov0" title="0">{
-                                return fmt.Errorf("unexpected type %T for field vote_count", values[i])
-                        }</span> else<span class="cov0" title="0"> if value.Valid </span><span class="cov0" title="0">{
-                                _m.VoteCount = int(value.Int64)
                         }</span>
                 case polloption.FieldCreatedAt:<span class="cov0" title="0">
                         if value, ok := values[i].(*sql.NullTime); !ok </span><span class="cov0" title="0">{
@@ -7916,9 +7818,6 @@ func (_m *PollOption) String() string <span class="cov0" title="0">{
         builder.WriteString("text=")
         builder.WriteString(_m.Text)
         builder.WriteString(", ")
-        builder.WriteString("vote_count=")
-        builder.WriteString(fmt.Sprintf("%v", _m.VoteCount))
-        builder.WriteString(", ")
         builder.WriteString("created_at=")
         builder.WriteString(_m.CreatedAt.Format(time.ANSIC))
         builder.WriteByte(')')
@@ -7949,8 +7848,6 @@ const (
         FieldPollID = "poll_id"
         // FieldText holds the string denoting the text field in the database.
         FieldText = "text"
-        // FieldVoteCount holds the string denoting the vote_count field in the database.
-        FieldVoteCount = "vote_count"
         // FieldCreatedAt holds the string denoting the created_at field in the database.
         FieldCreatedAt = "created_at"
         // EdgePoll holds the string denoting the poll edge name in mutations.
@@ -7980,7 +7877,6 @@ var Columns = []string{
         FieldID,
         FieldPollID,
         FieldText,
-        FieldVoteCount,
         FieldCreatedAt,
 }
 
@@ -7997,10 +7893,6 @@ func ValidColumn(column string) bool <span class="cov0" title="0">{
 var (
         // TextValidator is a validator for the "text" field. It is called by the builders before save.
         TextValidator func(string) error
-        // DefaultVoteCount holds the default value on creation for the "vote_count" field.
-        DefaultVoteCount int
-        // VoteCountValidator is a validator for the "vote_count" field. It is called by the builders before save.
-        VoteCountValidator func(int) error
         // DefaultCreatedAt holds the default value on creation for the "created_at" field.
         DefaultCreatedAt func() time.Time
 )
@@ -8021,11 +7913,6 @@ func ByPollID(opts ...sql.OrderTermOption) OrderOption <span class="cov0" title=
 // ByText orders the results by the text field.
 func ByText(opts ...sql.OrderTermOption) OrderOption <span class="cov0" title="0">{
         return sql.OrderByField(FieldText, opts...).ToFunc()
-}</span>
-
-// ByVoteCount orders the results by the vote_count field.
-func ByVoteCount(opts ...sql.OrderTermOption) OrderOption <span class="cov0" title="0">{
-        return sql.OrderByField(FieldVoteCount, opts...).ToFunc()
 }</span>
 
 // ByCreatedAt orders the results by the created_at field.
@@ -8136,11 +8023,6 @@ func Text(v string) predicate.PollOption <span class="cov0" title="0">{
         return predicate.PollOption(sql.FieldEQ(FieldText, v))
 }</span>
 
-// VoteCount applies equality check predicate on the "vote_count" field. It's identical to VoteCountEQ.
-func VoteCount(v int) predicate.PollOption <span class="cov0" title="0">{
-        return predicate.PollOption(sql.FieldEQ(FieldVoteCount, v))
-}</span>
-
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.PollOption <span class="cov0" title="0">{
         return predicate.PollOption(sql.FieldEQ(FieldCreatedAt, v))
@@ -8229,46 +8111,6 @@ func TextEqualFold(v string) predicate.PollOption <span class="cov0" title="0">{
 // TextContainsFold applies the ContainsFold predicate on the "text" field.
 func TextContainsFold(v string) predicate.PollOption <span class="cov0" title="0">{
         return predicate.PollOption(sql.FieldContainsFold(FieldText, v))
-}</span>
-
-// VoteCountEQ applies the EQ predicate on the "vote_count" field.
-func VoteCountEQ(v int) predicate.PollOption <span class="cov0" title="0">{
-        return predicate.PollOption(sql.FieldEQ(FieldVoteCount, v))
-}</span>
-
-// VoteCountNEQ applies the NEQ predicate on the "vote_count" field.
-func VoteCountNEQ(v int) predicate.PollOption <span class="cov0" title="0">{
-        return predicate.PollOption(sql.FieldNEQ(FieldVoteCount, v))
-}</span>
-
-// VoteCountIn applies the In predicate on the "vote_count" field.
-func VoteCountIn(vs ...int) predicate.PollOption <span class="cov0" title="0">{
-        return predicate.PollOption(sql.FieldIn(FieldVoteCount, vs...))
-}</span>
-
-// VoteCountNotIn applies the NotIn predicate on the "vote_count" field.
-func VoteCountNotIn(vs ...int) predicate.PollOption <span class="cov0" title="0">{
-        return predicate.PollOption(sql.FieldNotIn(FieldVoteCount, vs...))
-}</span>
-
-// VoteCountGT applies the GT predicate on the "vote_count" field.
-func VoteCountGT(v int) predicate.PollOption <span class="cov0" title="0">{
-        return predicate.PollOption(sql.FieldGT(FieldVoteCount, v))
-}</span>
-
-// VoteCountGTE applies the GTE predicate on the "vote_count" field.
-func VoteCountGTE(v int) predicate.PollOption <span class="cov0" title="0">{
-        return predicate.PollOption(sql.FieldGTE(FieldVoteCount, v))
-}</span>
-
-// VoteCountLT applies the LT predicate on the "vote_count" field.
-func VoteCountLT(v int) predicate.PollOption <span class="cov0" title="0">{
-        return predicate.PollOption(sql.FieldLT(FieldVoteCount, v))
-}</span>
-
-// VoteCountLTE applies the LTE predicate on the "vote_count" field.
-func VoteCountLTE(v int) predicate.PollOption <span class="cov0" title="0">{
-        return predicate.PollOption(sql.FieldLTE(FieldVoteCount, v))
 }</span>
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
@@ -8409,20 +8251,6 @@ func (_c *PollOptionCreate) SetText(v string) *PollOptionCreate <span class="cov
         return _c
 }</span>
 
-// SetVoteCount sets the "vote_count" field.
-func (_c *PollOptionCreate) SetVoteCount(v int) *PollOptionCreate <span class="cov0" title="0">{
-        _c.mutation.SetVoteCount(v)
-        return _c
-}</span>
-
-// SetNillableVoteCount sets the "vote_count" field if the given value is not nil.
-func (_c *PollOptionCreate) SetNillableVoteCount(v *int) *PollOptionCreate <span class="cov0" title="0">{
-        if v != nil </span><span class="cov0" title="0">{
-                _c.SetVoteCount(*v)
-        }</span>
-        <span class="cov0" title="0">return _c</span>
-}
-
 // SetCreatedAt sets the "created_at" field.
 func (_c *PollOptionCreate) SetCreatedAt(v time.Time) *PollOptionCreate <span class="cov0" title="0">{
         _c.mutation.SetCreatedAt(v)
@@ -8498,11 +8326,7 @@ func (_c *PollOptionCreate) ExecX(ctx context.Context) <span class="cov0" title=
 
 // defaults sets the default values of the builder before save.
 func (_c *PollOptionCreate) defaults() <span class="cov0" title="0">{
-        if _, ok := _c.mutation.VoteCount(); !ok </span><span class="cov0" title="0">{
-                v := polloption.DefaultVoteCount
-                _c.mutation.SetVoteCount(v)
-        }</span>
-        <span class="cov0" title="0">if _, ok := _c.mutation.CreatedAt(); !ok </span><span class="cov0" title="0">{
+        if _, ok := _c.mutation.CreatedAt(); !ok </span><span class="cov0" title="0">{
                 v := polloption.DefaultCreatedAt()
                 _c.mutation.SetCreatedAt(v)
         }</span>
@@ -8519,14 +8343,6 @@ func (_c *PollOptionCreate) check() error <span class="cov0" title="0">{
         <span class="cov0" title="0">if v, ok := _c.mutation.Text(); ok </span><span class="cov0" title="0">{
                 if err := polloption.TextValidator(v); err != nil </span><span class="cov0" title="0">{
                         return &amp;ValidationError{Name: "text", err: fmt.Errorf(`ent: validator failed for field "PollOption.text": %w`, err)}
-                }</span>
-        }
-        <span class="cov0" title="0">if _, ok := _c.mutation.VoteCount(); !ok </span><span class="cov0" title="0">{
-                return &amp;ValidationError{Name: "vote_count", err: errors.New(`ent: missing required field "PollOption.vote_count"`)}
-        }</span>
-        <span class="cov0" title="0">if v, ok := _c.mutation.VoteCount(); ok </span><span class="cov0" title="0">{
-                if err := polloption.VoteCountValidator(v); err != nil </span><span class="cov0" title="0">{
-                        return &amp;ValidationError{Name: "vote_count", err: fmt.Errorf(`ent: validator failed for field "PollOption.vote_count": %w`, err)}
                 }</span>
         }
         <span class="cov0" title="0">if _, ok := _c.mutation.CreatedAt(); !ok </span><span class="cov0" title="0">{
@@ -8570,10 +8386,6 @@ func (_c *PollOptionCreate) createSpec() (*PollOption, *sqlgraph.CreateSpec) <sp
         <span class="cov0" title="0">if value, ok := _c.mutation.Text(); ok </span><span class="cov0" title="0">{
                 _spec.SetField(polloption.FieldText, field.TypeString, value)
                 _node.Text = value
-        }</span>
-        <span class="cov0" title="0">if value, ok := _c.mutation.VoteCount(); ok </span><span class="cov0" title="0">{
-                _spec.SetField(polloption.FieldVoteCount, field.TypeInt, value)
-                _node.VoteCount = value
         }</span>
         <span class="cov0" title="0">if value, ok := _c.mutation.CreatedAt(); ok </span><span class="cov0" title="0">{
                 _spec.SetField(polloption.FieldCreatedAt, field.TypeTime, value)
@@ -9522,27 +9334,6 @@ func (_u *PollOptionUpdate) SetNillableText(v *string) *PollOptionUpdate <span c
         <span class="cov0" title="0">return _u</span>
 }
 
-// SetVoteCount sets the "vote_count" field.
-func (_u *PollOptionUpdate) SetVoteCount(v int) *PollOptionUpdate <span class="cov0" title="0">{
-        _u.mutation.ResetVoteCount()
-        _u.mutation.SetVoteCount(v)
-        return _u
-}</span>
-
-// SetNillableVoteCount sets the "vote_count" field if the given value is not nil.
-func (_u *PollOptionUpdate) SetNillableVoteCount(v *int) *PollOptionUpdate <span class="cov0" title="0">{
-        if v != nil </span><span class="cov0" title="0">{
-                _u.SetVoteCount(*v)
-        }</span>
-        <span class="cov0" title="0">return _u</span>
-}
-
-// AddVoteCount adds value to the "vote_count" field.
-func (_u *PollOptionUpdate) AddVoteCount(v int) *PollOptionUpdate <span class="cov0" title="0">{
-        _u.mutation.AddVoteCount(v)
-        return _u
-}</span>
-
 // SetCreatedAt sets the "created_at" field.
 func (_u *PollOptionUpdate) SetCreatedAt(v time.Time) *PollOptionUpdate <span class="cov0" title="0">{
         _u.mutation.SetCreatedAt(v)
@@ -9632,11 +9423,6 @@ func (_u *PollOptionUpdate) check() error <span class="cov0" title="0">{
                         return &amp;ValidationError{Name: "text", err: fmt.Errorf(`ent: validator failed for field "PollOption.text": %w`, err)}
                 }</span>
         }
-        <span class="cov0" title="0">if v, ok := _u.mutation.VoteCount(); ok </span><span class="cov0" title="0">{
-                if err := polloption.VoteCountValidator(v); err != nil </span><span class="cov0" title="0">{
-                        return &amp;ValidationError{Name: "vote_count", err: fmt.Errorf(`ent: validator failed for field "PollOption.vote_count": %w`, err)}
-                }</span>
-        }
         <span class="cov0" title="0">if _u.mutation.PollCleared() &amp;&amp; len(_u.mutation.PollIDs()) &gt; 0 </span><span class="cov0" title="0">{
                 return errors.New(`ent: clearing a required unique edge "PollOption.poll"`)
         }</span>
@@ -9657,12 +9443,6 @@ func (_u *PollOptionUpdate) sqlSave(ctx context.Context) (_node int, err error) 
         }
         <span class="cov0" title="0">if value, ok := _u.mutation.Text(); ok </span><span class="cov0" title="0">{
                 _spec.SetField(polloption.FieldText, field.TypeString, value)
-        }</span>
-        <span class="cov0" title="0">if value, ok := _u.mutation.VoteCount(); ok </span><span class="cov0" title="0">{
-                _spec.SetField(polloption.FieldVoteCount, field.TypeInt, value)
-        }</span>
-        <span class="cov0" title="0">if value, ok := _u.mutation.AddedVoteCount(); ok </span><span class="cov0" title="0">{
-                _spec.AddField(polloption.FieldVoteCount, field.TypeInt, value)
         }</span>
         <span class="cov0" title="0">if value, ok := _u.mutation.CreatedAt(); ok </span><span class="cov0" title="0">{
                 _spec.SetField(polloption.FieldCreatedAt, field.TypeTime, value)
@@ -9745,27 +9525,6 @@ func (_u *PollOptionUpdateOne) SetNillableText(v *string) *PollOptionUpdateOne <
         }</span>
         <span class="cov0" title="0">return _u</span>
 }
-
-// SetVoteCount sets the "vote_count" field.
-func (_u *PollOptionUpdateOne) SetVoteCount(v int) *PollOptionUpdateOne <span class="cov0" title="0">{
-        _u.mutation.ResetVoteCount()
-        _u.mutation.SetVoteCount(v)
-        return _u
-}</span>
-
-// SetNillableVoteCount sets the "vote_count" field if the given value is not nil.
-func (_u *PollOptionUpdateOne) SetNillableVoteCount(v *int) *PollOptionUpdateOne <span class="cov0" title="0">{
-        if v != nil </span><span class="cov0" title="0">{
-                _u.SetVoteCount(*v)
-        }</span>
-        <span class="cov0" title="0">return _u</span>
-}
-
-// AddVoteCount adds value to the "vote_count" field.
-func (_u *PollOptionUpdateOne) AddVoteCount(v int) *PollOptionUpdateOne <span class="cov0" title="0">{
-        _u.mutation.AddVoteCount(v)
-        return _u
-}</span>
 
 // SetCreatedAt sets the "created_at" field.
 func (_u *PollOptionUpdateOne) SetCreatedAt(v time.Time) *PollOptionUpdateOne <span class="cov0" title="0">{
@@ -9869,11 +9628,6 @@ func (_u *PollOptionUpdateOne) check() error <span class="cov0" title="0">{
                         return &amp;ValidationError{Name: "text", err: fmt.Errorf(`ent: validator failed for field "PollOption.text": %w`, err)}
                 }</span>
         }
-        <span class="cov0" title="0">if v, ok := _u.mutation.VoteCount(); ok </span><span class="cov0" title="0">{
-                if err := polloption.VoteCountValidator(v); err != nil </span><span class="cov0" title="0">{
-                        return &amp;ValidationError{Name: "vote_count", err: fmt.Errorf(`ent: validator failed for field "PollOption.vote_count": %w`, err)}
-                }</span>
-        }
         <span class="cov0" title="0">if _u.mutation.PollCleared() &amp;&amp; len(_u.mutation.PollIDs()) &gt; 0 </span><span class="cov0" title="0">{
                 return errors.New(`ent: clearing a required unique edge "PollOption.poll"`)
         }</span>
@@ -9911,12 +9665,6 @@ func (_u *PollOptionUpdateOne) sqlSave(ctx context.Context) (_node *PollOption, 
         }
         <span class="cov0" title="0">if value, ok := _u.mutation.Text(); ok </span><span class="cov0" title="0">{
                 _spec.SetField(polloption.FieldText, field.TypeString, value)
-        }</span>
-        <span class="cov0" title="0">if value, ok := _u.mutation.VoteCount(); ok </span><span class="cov0" title="0">{
-                _spec.SetField(polloption.FieldVoteCount, field.TypeInt, value)
-        }</span>
-        <span class="cov0" title="0">if value, ok := _u.mutation.AddedVoteCount(); ok </span><span class="cov0" title="0">{
-                _spec.AddField(polloption.FieldVoteCount, field.TypeInt, value)
         }</span>
         <span class="cov0" title="0">if value, ok := _u.mutation.CreatedAt(); ok </span><span class="cov0" title="0">{
                 _spec.SetField(polloption.FieldCreatedAt, field.TypeTime, value)
@@ -10016,14 +9764,8 @@ func init() <span class="cov0" title="0">{
         polloptionDescText := polloptionFields[2].Descriptor()
         // polloption.TextValidator is a validator for the "text" field. It is called by the builders before save.
         polloption.TextValidator = polloptionDescText.Validators[0].(func(string) error)
-        // polloptionDescVoteCount is the schema descriptor for vote_count field.
-        polloptionDescVoteCount := polloptionFields[3].Descriptor()
-        // polloption.DefaultVoteCount holds the default value on creation for the vote_count field.
-        polloption.DefaultVoteCount = polloptionDescVoteCount.Default.(int)
-        // polloption.VoteCountValidator is a validator for the "vote_count" field. It is called by the builders before save.
-        polloption.VoteCountValidator = polloptionDescVoteCount.Validators[0].(func(int) error)
         // polloptionDescCreatedAt is the schema descriptor for created_at field.
-        polloptionDescCreatedAt := polloptionFields[4].Descriptor()
+        polloptionDescCreatedAt := polloptionFields[3].Descriptor()
         // polloption.DefaultCreatedAt holds the default value on creation for the created_at field.
         polloption.DefaultCreatedAt = polloptionDescCreatedAt.Default.(func() time.Time)
         userFields := schema.User{}.Fields()
@@ -10055,6 +9797,7 @@ import (
         "time"
 
         "entgo.io/ent"
+        "entgo.io/ent/dialect/entsql"
         "entgo.io/ent/schema/edge"
         "entgo.io/ent/schema/field"
 )
@@ -10084,9 +9827,12 @@ func (Poll) Edges() []ent.Edge <span class="cov0" title="0">{
                         Ref("polls").
                         Field("owner_id").
                         Unique().
-                        Required(),
-                edge.To("options", PollOption.Type),
-                edge.To("votes", Vote.Type),
+                        Required().
+                        Annotations(entsql.OnDelete(entsql.Cascade)),
+                edge.To("options", PollOption.Type).
+                        Annotations(entsql.OnDelete(entsql.Cascade)),
+                edge.To("votes", Vote.Type).
+                        Annotations(entsql.OnDelete(entsql.Cascade)),
         }
 }</span>
 </pre>
@@ -10114,9 +9860,6 @@ func (PollOption) Fields() []ent.Field <span class="cov0" title="0">{
                         Immutable(),
                 field.String("text").
                         NotEmpty(),
-                field.Int("vote_count").
-                        Default(0).
-                        NonNegative(),
                 field.Time("created_at").
                         Default(time.Now),
         }
@@ -10182,6 +9925,7 @@ import (
         "time"
 
         "entgo.io/ent"
+        "entgo.io/ent/dialect/entsql"
         "entgo.io/ent/schema/edge"
         "entgo.io/ent/schema/field"
         "entgo.io/ent/schema/index"
@@ -10222,13 +9966,15 @@ func (Vote) Edges() []ent.Edge <span class="cov0" title="0">{
                         Field("option_id").
                         Required().
                         Unique().
-                        Immutable(),
+                        Immutable().
+                        Annotations(entsql.OnDelete(entsql.Cascade)),
                 edge.From("user", User.Type).
                         Ref("votes").
                         Field("user_id").
                         Required().
                         Unique().
-                        Immutable(),
+                        Immutable().
+                        Annotations(entsql.OnDelete(entsql.Cascade)),
         }
 }</span>
 
@@ -14779,10 +14525,12 @@ type ctxKey string
 
 const slogFields ctxKey = "slogFields"
 
+// ContextHandler is a slog.Handler that extracts attributes from context
 type ContextHandler struct {
         slog.Handler
 }
 
+// Handle implements slog.Handler and adds context attributes to the record
 func (h ContextHandler) Handle(ctx context.Context, r slog.Record) error <span class="cov0" title="0">{
         if attrs, ok := ctx.Value(slogFields).([]slog.Attr); ok </span><span class="cov0" title="0">{
                 for _, attr := range attrs </span><span class="cov0" title="0">{
@@ -14792,6 +14540,17 @@ func (h ContextHandler) Handle(ctx context.Context, r slog.Record) error <span c
         <span class="cov0" title="0">return h.Handler.Handle(ctx, r)</span>
 }
 
+// WithAttrs returns a new ContextHandler with the given attributes
+func (h ContextHandler) WithAttrs(attrs []slog.Attr) slog.Handler <span class="cov0" title="0">{
+        return ContextHandler{Handler: h.Handler.WithAttrs(attrs)}
+}</span>
+
+// WithGroup returns a new ContextHandler with the given group name
+func (h ContextHandler) WithGroup(name string) slog.Handler <span class="cov0" title="0">{
+        return ContextHandler{Handler: h.Handler.WithGroup(name)}
+}</span>
+
+// AppendCtx appends slog attributes to the context
 func AppendCtx(ctx context.Context, attrs ...slog.Attr) context.Context <span class="cov0" title="0">{
         if existing, ok := ctx.Value(slogFields).([]slog.Attr); ok </span><span class="cov0" title="0">{
                 attrs = append(existing, attrs...)
@@ -14819,14 +14578,28 @@ func NewLogger(level slog.Level) *slog.Logger <span class="cov0" title="0">{
 		<pre class="file" id="file46" style="display: none">package server
 
 import (
+        "database/sql"
         "log/slog"
         "net/http"
 )
 
-func HandleHealth(logger *slog.Logger) http.Handler <span class="cov0" title="0">{
+// HandleHealth returns a health check handler that verifies database connectivity
+func HandleHealth(logger *slog.Logger, db *sql.DB) http.Handler <span class="cov0" title="0">{
         return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                if err := db.PingContext(r.Context()); err != nil </span><span class="cov0" title="0">{
+                        logger.LogAttrs(
+                                r.Context(),
+                                slog.LevelError,
+                                "health check failed: database unavailable",
+                                slog.String("error", err.Error()),
+                        )
+                        writeError(w, "database unavailable", ErrCodeInternal, http.StatusServiceUnavailable)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">w.Header().Set("Content-Type", "application/json")
                 w.WriteHeader(http.StatusOK)
-                _, err := w.Write([]byte("OK"))
+                _, err := w.Write([]byte(`{"status":"ok"}`))
                 if err != nil </span><span class="cov0" title="0">{
                         logger.LogAttrs(
                                 r.Context(),
@@ -14834,7 +14607,6 @@ func HandleHealth(logger *slog.Logger) http.Handler <span class="cov0" title="0"
                                 "failed to write health response",
                                 slog.String("error", err.Error()),
                         )
-                        return
                 }</span>
         })
 }
@@ -14917,9 +14689,9 @@ func NewDefaults(
         return func(h http.Handler) http.Handler </span><span class="cov0" title="0">{
                 // Correct order: panic recovery outermost, then request tracking, then timeout
                 return panicRecovery(logger,
-                        requestId(logger,
+                        requestID(logger,
                                 httpRequest(logger,
-                                        timeout(config.ApiTimeout, h),
+                                        timeout(config.APITimeout, h),
                                 ),
                         ),
                 )
@@ -14942,7 +14714,7 @@ func panicRecovery(logger *slog.Logger, next http.Handler) http.Handler <span cl
                                         r.Context(),
                                         slog.LevelError,
                                         "panic recovered",
-                                        slog.String(RequestIdKey, requestIdFromContext(r.Context())),
+                                        slog.String(RequestIDKey, requestIDFromContext(r.Context())),
                                         slog.String("path", r.URL.Path),
                                         slog.Any("panic", rec),
                                 )
@@ -14962,31 +14734,33 @@ import (
         "net/http"
 
         "github.com/google/uuid"
+
         "github.com/ivankorhner/polling-app/internal/logging"
 )
 
-const RequestIdKey string = "request_id"
+// RequestIDKey is the context key for storing request IDs
+const RequestIDKey string = "request_id"
 
-func requestIdFromContext(ctx context.Context) string <span class="cov0" title="0">{
-        if reqId, ok := ctx.Value(RequestIdKey).(string); ok </span><span class="cov0" title="0">{
-                return reqId
+func requestIDFromContext(ctx context.Context) string <span class="cov0" title="0">{
+        if reqID, ok := ctx.Value(RequestIDKey).(string); ok </span><span class="cov0" title="0">{
+                return reqID
         }</span>
         <span class="cov0" title="0">return ""</span>
 }
 
-func requestId(logger *slog.Logger, next http.Handler) http.Handler <span class="cov0" title="0">{
+func requestID(logger *slog.Logger, next http.Handler) http.Handler <span class="cov0" title="0">{
         return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
                 ctx := r.Context()
-                if existing := requestIdFromContext(ctx); existing == "" </span><span class="cov0" title="0">{
-                        reqId := generateRequestId()
-                        ctx = logging.AppendCtx(ctx, slog.String(RequestIdKey, reqId))
+                if existing := requestIDFromContext(ctx); existing == "" </span><span class="cov0" title="0">{
+                        reqID := generateRequestID()
+                        ctx = logging.AppendCtx(ctx, slog.String(RequestIDKey, reqID))
                         r = r.WithContext(ctx)
                 }</span>
                 <span class="cov0" title="0">next.ServeHTTP(w, r.WithContext(ctx))</span>
         })
 }
 
-func generateRequestId() string <span class="cov0" title="0">{
+func generateRequestID() string <span class="cov0" title="0">{
         return uuid.New().String()
 }</span>
 </pre>
@@ -15008,6 +14782,7 @@ func timeout(timeout time.Duration, next http.Handler) http.Handler <span class=
 import (
         "context"
         "encoding/json"
+        "errors"
         "log/slog"
         "net/http"
 
@@ -15016,30 +14791,42 @@ import (
         "github.com/ivankorhner/polling-app/internal/ent/user"
 )
 
+// CreatePollRequest represents the request body for poll creation
 type CreatePollRequest struct {
         OwnerID int      `json:"owner_id"`
         Title   string   `json:"title"`
         Options []string `json:"options"`
 }
 
+// HandleCreatePoll handles poll creation
 func HandleCreatePoll(logger *slog.Logger, client *ent.Client) http.Handler <span class="cov10" title="6">{
         return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov10" title="6">{
+                logger.LogAttrs(r.Context(), slog.LevelInfo, "create poll: starting")
+
+                // Limit request body size
+                r.Body = http.MaxBytesReader(w, r.Body, MaxRequestBodySize)
+
                 var req CreatePollRequest
                 if err := json.NewDecoder(r.Body).Decode(&amp;req); err != nil </span><span class="cov1" title="1">{
-                        http.Error(w, "invalid request body", http.StatusBadRequest)
+                        writeValidationError(w, "invalid request body")
                         return
                 }</span>
 
-                <span class="cov9" title="5">if req.Title == "" </span><span class="cov1" title="1">{
-                        http.Error(w, "title is required", http.StatusBadRequest)
+                // Validate title
+                <span class="cov9" title="5">if errMsg := ValidatePollTitle(req.Title); errMsg != "" </span><span class="cov1" title="1">{
+                        writeValidationError(w, errMsg)
                         return
                 }</span>
+
+                // Validate owner_id
                 <span class="cov7" title="4">if req.OwnerID == 0 </span><span class="cov1" title="1">{
-                        http.Error(w, "owner_id is required", http.StatusBadRequest)
+                        writeValidationError(w, "owner_id is required")
                         return
                 }</span>
-                <span class="cov6" title="3">if len(req.Options) &lt; 2 </span><span class="cov1" title="1">{
-                        http.Error(w, "at least 2 options are required", http.StatusBadRequest)
+
+                // Validate options
+                <span class="cov6" title="3">if errMsg := ValidatePollOptions(req.Options); errMsg != "" </span><span class="cov1" title="1">{
+                        writeValidationError(w, errMsg)
                         return
                 }</span>
 
@@ -15052,11 +14839,11 @@ func HandleCreatePoll(logger *slog.Logger, client *ent.Client) http.Handler <spa
                                 "failed to check user existence",
                                 slog.String("error", err.Error()),
                         )
-                        http.Error(w, "failed to create poll", http.StatusInternalServerError)
+                        writeInternalError(w, "failed to create poll")
                         return
                 }</span>
                 <span class="cov4" title="2">if !exists </span><span class="cov1" title="1">{
-                        http.Error(w, "owner not found", http.StatusBadRequest)
+                        writeValidationError(w, "owner not found")
                         return
                 }</span>
 
@@ -15068,27 +14855,38 @@ func HandleCreatePoll(logger *slog.Logger, client *ent.Client) http.Handler <spa
                                 "failed to create poll",
                                 slog.String("error", err.Error()),
                         )
-                        http.Error(w, "failed to create poll", http.StatusInternalServerError)
+                        writeInternalError(w, "failed to create poll")
                         return
                 }</span>
 
-                // Reload poll with options
+                // Reload poll with options and vote counts
                 <span class="cov1" title="1">poll, err = client.Poll.Query().
                         Where(entpoll.ID(poll.ID)).
-                        WithOptions().
+                        WithOptions(func(q *ent.PollOptionQuery) </span><span class="cov1" title="1">{
+                                q.WithVotes()
+                        }</span>).
                         Only(r.Context())
-                if err != nil </span><span class="cov0" title="0">{
+                <span class="cov1" title="1">if err != nil </span><span class="cov0" title="0">{
                         logger.LogAttrs(
                                 r.Context(),
                                 slog.LevelError,
                                 "failed to reload poll",
                                 slog.String("error", err.Error()),
                         )
-                        http.Error(w, "failed to create poll", http.StatusInternalServerError)
+                        writeInternalError(w, "failed to create poll")
                         return
                 }</span>
 
-                <span class="cov1" title="1">w.Header().Set("Content-Type", "application/json")
+                <span class="cov1" title="1">logger.LogAttrs(
+                        r.Context(),
+                        slog.LevelInfo,
+                        "create poll: completed",
+                        slog.Int("poll_id", poll.ID),
+                        slog.String("title", poll.Title),
+                        slog.Int("options_count", len(poll.Edges.Options)),
+                )
+
+                w.Header().Set("Content-Type", "application/json")
                 w.WriteHeader(http.StatusCreated)
                 if err := json.NewEncoder(w).Encode(mapPollToResponse(poll)); err != nil </span><span class="cov0" title="0">{
                         logger.LogAttrs(
@@ -15112,8 +14910,7 @@ func createPollWithOptions(ctx context.Context, client *ent.Client, req CreatePo
                 SetTitle(req.Title).
                 Save(ctx)
         if err != nil </span><span class="cov0" title="0">{
-                tx.Rollback()
-                return nil, err
+                return nil, errors.Join(err, tx.Rollback())
         }</span>
 
         <span class="cov1" title="1">for _, optionText := range req.Options </span><span class="cov6" title="3">{
@@ -15122,8 +14919,7 @@ func createPollWithOptions(ctx context.Context, client *ent.Client, req CreatePo
                         SetText(optionText).
                         Save(ctx)
                 if err != nil </span><span class="cov0" title="0">{
-                        tx.Rollback()
-                        return nil, err
+                        return nil, errors.Join(err, tx.Rollback())
                 }</span>
         }
 
@@ -15139,6 +14935,7 @@ func createPollWithOptions(ctx context.Context, client *ent.Client, req CreatePo
 
 import (
         "context"
+        "errors"
         "log/slog"
         "net/http"
         "strconv"
@@ -15149,35 +14946,40 @@ import (
         "github.com/ivankorhner/polling-app/internal/ent/vote"
 )
 
+// HandleDeletePoll handles poll deletion
 func HandleDeletePoll(logger *slog.Logger, client *ent.Client) http.Handler <span class="cov10" title="4">{
         return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov10" title="4">{
                 idStr := r.PathValue("id")
                 id, err := strconv.Atoi(idStr)
                 if err != nil </span><span class="cov1" title="1">{
-                        http.Error(w, "invalid poll id", http.StatusBadRequest)
+                        writeValidationError(w, "invalid poll id")
                         return
                 }</span>
 
+                <span class="cov8" title="3">logger.LogAttrs(r.Context(), slog.LevelInfo, "delete poll: starting", slog.Int("poll_id", id))
+
                 // Check if poll exists
-                <span class="cov8" title="3">exists, err := client.Poll.Query().Where(entpoll.ID(id)).Exist(r.Context())
+                exists, err := client.Poll.Query().Where(entpoll.ID(id)).Exist(r.Context())
                 if err != nil </span><span class="cov0" title="0">{
                         logger.LogAttrs(r.Context(), slog.LevelError, "failed to check poll", slog.String("error", err.Error()))
-                        http.Error(w, "failed to delete poll", http.StatusInternalServerError)
+                        writeInternalError(w, "failed to delete poll")
                         return
                 }</span>
                 <span class="cov8" title="3">if !exists </span><span class="cov1" title="1">{
-                        http.Error(w, "poll not found", http.StatusNotFound)
+                        writeNotFoundError(w, "poll not found")
                         return
                 }</span>
 
                 // Delete poll and related entities in transaction
                 <span class="cov5" title="2">if err := deletePollWithRelations(r.Context(), client, id); err != nil </span><span class="cov0" title="0">{
                         logger.LogAttrs(r.Context(), slog.LevelError, "failed to delete poll", slog.String("error", err.Error()))
-                        http.Error(w, "failed to delete poll", http.StatusInternalServerError)
+                        writeInternalError(w, "failed to delete poll")
                         return
                 }</span>
 
-                <span class="cov5" title="2">w.WriteHeader(http.StatusNoContent)</span>
+                <span class="cov5" title="2">logger.LogAttrs(r.Context(), slog.LevelInfo, "delete poll: completed", slog.Int("poll_id", id))
+
+                w.WriteHeader(http.StatusNoContent)</span>
         })
 }
 
@@ -15190,22 +14992,19 @@ func deletePollWithRelations(ctx context.Context, client *ent.Client, pollID int
         // Delete votes for this poll first
         <span class="cov5" title="2">_, err = tx.Vote.Delete().Where(vote.PollID(pollID)).Exec(ctx)
         if err != nil </span><span class="cov0" title="0">{
-                tx.Rollback()
-                return err
+                return errors.Join(err, tx.Rollback())
         }</span>
 
         // Delete poll options
         <span class="cov5" title="2">_, err = tx.PollOption.Delete().Where(polloption.PollID(pollID)).Exec(ctx)
         if err != nil </span><span class="cov0" title="0">{
-                tx.Rollback()
-                return err
+                return errors.Join(err, tx.Rollback())
         }</span>
 
         // Delete the poll itself
         <span class="cov5" title="2">err = tx.Poll.DeleteOneID(pollID).Exec(ctx)
         if err != nil </span><span class="cov0" title="0">{
-                tx.Rollback()
-                return err
+                return errors.Join(err, tx.Rollback())
         }</span>
 
         <span class="cov5" title="2">return tx.Commit()</span>
@@ -15225,6 +15024,7 @@ import (
         entpoll "github.com/ivankorhner/polling-app/internal/ent/poll"
 )
 
+// PollResponse represents the response for poll operations
 type PollResponse struct {
         ID        int              `json:"id"`
         Title     string           `json:"title"`
@@ -15232,25 +15032,31 @@ type PollResponse struct {
         Options   []OptionResponse `json:"options"`
 }
 
+// OptionResponse represents a poll option in responses
 type OptionResponse struct {
         ID        int    `json:"id"`
         Text      string `json:"text"`
         VoteCount int    `json:"vote_count"`
 }
 
+// HandleListPolls handles listing all polls
 func HandleListPolls(logger *slog.Logger, client *ent.Client) http.Handler <span class="cov4" title="2">{
         return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov4" title="2">{
+                logger.LogAttrs(r.Context(), slog.LevelInfo, "list polls: starting")
+
                 polls, err := client.Poll.Query().
-                        WithOptions().
+                        WithOptions(func(q *ent.PollOptionQuery) </span><span class="cov4" title="2">{
+                                q.WithVotes()
+                        }</span>).
                         All(r.Context())
-                if err != nil </span><span class="cov0" title="0">{
+                <span class="cov4" title="2">if err != nil </span><span class="cov0" title="0">{
                         logger.LogAttrs(
                                 r.Context(),
                                 slog.LevelError,
                                 "failed to query polls",
                                 slog.String("error", err.Error()),
                         )
-                        http.Error(w, "failed to retrieve polls", http.StatusInternalServerError)
+                        writeInternalError(w, "failed to retrieve polls")
                         return
                 }</span>
 
@@ -15259,7 +15065,14 @@ func HandleListPolls(logger *slog.Logger, client *ent.Client) http.Handler <span
                         response[i] = mapPollToResponse(p)
                 }</span>
 
-                <span class="cov4" title="2">w.Header().Set("Content-Type", "application/json")
+                <span class="cov4" title="2">logger.LogAttrs(
+                        r.Context(),
+                        slog.LevelInfo,
+                        "list polls: completed",
+                        slog.Int("count", len(polls)),
+                )
+
+                w.Header().Set("Content-Type", "application/json")
                 if err := json.NewEncoder(w).Encode(response); err != nil </span><span class="cov0" title="0">{
                         logger.LogAttrs(
                                 r.Context(),
@@ -15271,22 +15084,27 @@ func HandleListPolls(logger *slog.Logger, client *ent.Client) http.Handler <span
         })
 }
 
+// HandleGetPoll handles getting a single poll by ID
 func HandleGetPoll(logger *slog.Logger, client *ent.Client) http.Handler <span class="cov5" title="3">{
         return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov5" title="3">{
                 idStr := r.PathValue("id")
                 id, err := strconv.Atoi(idStr)
                 if err != nil </span><span class="cov1" title="1">{
-                        http.Error(w, "invalid poll id", http.StatusBadRequest)
+                        writeValidationError(w, "invalid poll id")
                         return
                 }</span>
 
-                <span class="cov4" title="2">poll, err := client.Poll.Query().
-                        WithOptions().
+                <span class="cov4" title="2">logger.LogAttrs(r.Context(), slog.LevelInfo, "get poll: starting", slog.Int("poll_id", id))
+
+                poll, err := client.Poll.Query().
+                        WithOptions(func(q *ent.PollOptionQuery) </span><span class="cov4" title="2">{
+                                q.WithVotes()
+                        }</span>).
                         Where(entpoll.ID(id)).
                         Only(r.Context())
-                if err != nil </span><span class="cov1" title="1">{
+                <span class="cov4" title="2">if err != nil </span><span class="cov1" title="1">{
                         if ent.IsNotFound(err) </span><span class="cov1" title="1">{
-                                http.Error(w, "poll not found", http.StatusNotFound)
+                                writeNotFoundError(w, "poll not found")
                                 return
                         }</span>
                         <span class="cov0" title="0">logger.LogAttrs(
@@ -15296,11 +15114,19 @@ func HandleGetPoll(logger *slog.Logger, client *ent.Client) http.Handler <span c
                                 slog.String("error", err.Error()),
                                 slog.Int("poll_id", id),
                         )
-                        http.Error(w, "failed to retrieve poll", http.StatusInternalServerError)
+                        writeInternalError(w, "failed to retrieve poll")
                         return</span>
                 }
 
-                <span class="cov1" title="1">w.Header().Set("Content-Type", "application/json")
+                <span class="cov1" title="1">logger.LogAttrs(
+                        r.Context(),
+                        slog.LevelInfo,
+                        "get poll: completed",
+                        slog.Int("poll_id", poll.ID),
+                        slog.String("title", poll.Title),
+                )
+
+                w.Header().Set("Content-Type", "application/json")
                 if err := json.NewEncoder(w).Encode(mapPollToResponse(poll)); err != nil </span><span class="cov0" title="0">{
                         logger.LogAttrs(
                                 r.Context(),
@@ -15324,10 +15150,12 @@ func mapPollToResponse(p *ent.Poll) PollResponse <span class="cov7" title="4">{
 func mapOptionsToResponse(options []*ent.PollOption) []OptionResponse <span class="cov7" title="4">{
         result := make([]OptionResponse, len(options))
         for i, o := range options </span><span class="cov10" title="8">{
+                // Calculate vote count dynamically from the votes edge
+                voteCount := len(o.Edges.Votes)
                 result[i] = OptionResponse{
                         ID:        o.ID,
                         Text:      o.Text,
-                        VoteCount: o.VoteCount,
+                        VoteCount: voteCount,
                 }
         }</span>
         <span class="cov7" title="4">return result</span>
@@ -15337,7 +15165,66 @@ func mapOptionsToResponse(options []*ent.PollOption) []OptionResponse <span clas
 		<pre class="file" id="file55" style="display: none">package server
 
 import (
+        "encoding/json"
+        "net/http"
+)
+
+// MaxRequestBodySize is the maximum allowed size for request bodies (1MB)
+const MaxRequestBodySize = 1 &lt;&lt; 20
+
+// ErrorResponse represents a unified JSON error response
+type ErrorResponse struct {
+        Error   string `json:"error"`
+        Code    string `json:"code,omitempty"`
+        Details string `json:"details,omitempty"`
+}
+
+// Error codes for common error scenarios
+const (
+        ErrCodeValidation   = "VALIDATION_ERROR"
+        ErrCodeNotFound     = "NOT_FOUND"
+        ErrCodeConflict     = "CONFLICT"
+        ErrCodeInternal     = "INTERNAL_ERROR"
+        ErrCodeBadRequest   = "BAD_REQUEST"
+        ErrCodeUnauthorized = "UNAUTHORIZED"
+)
+
+// writeError writes a JSON error response
+func writeError(w http.ResponseWriter, message, code string, status int) <span class="cov10" title="26">{
+        w.Header().Set("Content-Type", "application/json")
+        w.WriteHeader(status)
+        _ = json.NewEncoder(w).Encode(ErrorResponse{
+                Error: message,
+                Code:  code,
+        })
+}</span>
+
+// writeValidationError writes a validation error response
+func writeValidationError(w http.ResponseWriter, message string) <span class="cov9" title="20">{
+        writeError(w, message, ErrCodeValidation, http.StatusBadRequest)
+}</span>
+
+// writeNotFoundError writes a not found error response
+func writeNotFoundError(w http.ResponseWriter, message string) <span class="cov4" title="3">{
+        writeError(w, message, ErrCodeNotFound, http.StatusNotFound)
+}</span>
+
+// writeConflictError writes a conflict error response
+func writeConflictError(w http.ResponseWriter, message string) <span class="cov4" title="3">{
+        writeError(w, message, ErrCodeConflict, http.StatusConflict)
+}</span>
+
+// writeInternalError writes an internal server error response
+func writeInternalError(w http.ResponseWriter, message string) <span class="cov0" title="0">{
+        writeError(w, message, ErrCodeInternal, http.StatusInternalServerError)
+}</span>
+</pre>
+		
+		<pre class="file" id="file56" style="display: none">package server
+
+import (
         "context"
+        "database/sql"
         "log/slog"
         "net/http"
 
@@ -15346,17 +15233,19 @@ import (
         "github.com/ivankorhner/polling-app/internal/server/middleware"
 )
 
+// AddRoutes configures all HTTP routes for the server
 func AddRoutes(
         ctx context.Context,
         config *config.Config,
         logger *slog.Logger,
+        db *sql.DB,
         client *ent.Client,
 ) http.Handler <span class="cov0" title="0">{
         mux := http.NewServeMux()
 
         middlewares := middleware.NewDefaults(ctx, config, logger)
 
-        mux.Handle(http.MethodGet+" /health", HandleHealth(logger))
+        mux.Handle(http.MethodGet+" /health", HandleHealth(logger, db))
         mux.Handle(http.MethodGet+" /polls", HandleListPolls(logger, client))
         mux.Handle(http.MethodGet+" /polls/{id}", HandleGetPoll(logger, client))
         mux.Handle(http.MethodPost+" /polls", HandleCreatePoll(logger, client))
@@ -15370,22 +15259,25 @@ func AddRoutes(
 }</span>
 </pre>
 		
-		<pre class="file" id="file56" style="display: none">package server
+		<pre class="file" id="file57" style="display: none">package server
 
 import (
         "encoding/json"
         "log/slog"
         "net/http"
+        "strings"
         "time"
 
         "github.com/ivankorhner/polling-app/internal/ent"
 )
 
+// RegisterUserRequest represents the request body for user registration
 type RegisterUserRequest struct {
         Username string `json:"username"`
         Email    string `json:"email"`
 }
 
+// UserResponse represents the response for user operations
 type UserResponse struct {
         ID        int       `json:"id"`
         Username  string    `json:"username"`
@@ -15393,30 +15285,43 @@ type UserResponse struct {
         CreatedAt time.Time `json:"created_at"`
 }
 
-func HandleRegisterUser(logger *slog.Logger, client *ent.Client) http.Handler <span class="cov10" title="6">{
-        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov10" title="6">{
+// HandleRegisterUser handles user registration
+func HandleRegisterUser(logger *slog.Logger, client *ent.Client) http.Handler <span class="cov10" title="10">{
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov10" title="10">{
+                logger.LogAttrs(r.Context(), slog.LevelInfo, "register user: starting")
+
+                // Limit request body size
+                r.Body = http.MaxBytesReader(w, r.Body, MaxRequestBodySize)
+
                 var req RegisterUserRequest
                 if err := json.NewDecoder(r.Body).Decode(&amp;req); err != nil </span><span class="cov1" title="1">{
-                        http.Error(w, "invalid request body", http.StatusBadRequest)
+                        writeValidationError(w, "invalid request body")
                         return
                 }</span>
 
-                <span class="cov9" title="5">if req.Username == "" </span><span class="cov1" title="1">{
-                        http.Error(w, "username is required", http.StatusBadRequest)
-                        return
-                }</span>
-                <span class="cov7" title="4">if req.Email == "" </span><span class="cov1" title="1">{
-                        http.Error(w, "email is required", http.StatusBadRequest)
+                // Validate username
+                <span class="cov9" title="9">if errMsg := ValidateUsername(req.Username); errMsg != "" </span><span class="cov6" title="4">{
+                        writeValidationError(w, errMsg)
                         return
                 }</span>
 
-                <span class="cov6" title="3">user, err := client.User.Create().
+                // Validate email
+                <span class="cov7" title="5">if errMsg := ValidateEmail(req.Email); errMsg != "" </span><span class="cov3" title="2">{
+                        writeValidationError(w, errMsg)
+                        return
+                }</span>
+
+                // Normalize inputs
+                <span class="cov5" title="3">req.Username = strings.TrimSpace(req.Username)
+                req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+
+                user, err := client.User.Create().
                         SetUsername(req.Username).
                         SetEmail(req.Email).
                         Save(r.Context())
-                if err != nil </span><span class="cov4" title="2">{
-                        if ent.IsConstraintError(err) </span><span class="cov4" title="2">{
-                                http.Error(w, "username or email already exists", http.StatusConflict)
+                if err != nil </span><span class="cov3" title="2">{
+                        if ent.IsConstraintError(err) </span><span class="cov3" title="2">{
+                                writeConflictError(w, "username or email already exists")
                                 return
                         }</span>
                         <span class="cov0" title="0">logger.LogAttrs(
@@ -15425,11 +15330,19 @@ func HandleRegisterUser(logger *slog.Logger, client *ent.Client) http.Handler <s
                                 "failed to create user",
                                 slog.String("error", err.Error()),
                         )
-                        http.Error(w, "failed to create user", http.StatusInternalServerError)
+                        writeInternalError(w, "failed to create user")
                         return</span>
                 }
 
-                <span class="cov1" title="1">w.Header().Set("Content-Type", "application/json")
+                <span class="cov1" title="1">logger.LogAttrs(
+                        r.Context(),
+                        slog.LevelInfo,
+                        "register user: completed",
+                        slog.Int("user_id", user.ID),
+                        slog.String("username", user.Username),
+                )
+
+                w.Header().Set("Content-Type", "application/json")
                 w.WriteHeader(http.StatusCreated)
                 if err := json.NewEncoder(w).Encode(mapUserToResponse(user)); err != nil </span><span class="cov0" title="0">{
                         logger.LogAttrs(
@@ -15452,11 +15365,120 @@ func mapUserToResponse(u *ent.User) UserResponse <span class="cov1" title="1">{
 }</span>
 </pre>
 		
-		<pre class="file" id="file57" style="display: none">package server
+		<pre class="file" id="file58" style="display: none">package server
+
+import (
+        "regexp"
+        "strings"
+        "unicode"
+)
+
+const (
+        // UsernameMinLength is the minimum length for usernames
+        UsernameMinLength = 3
+        // UsernameMaxLength is the maximum length for usernames
+        UsernameMaxLength = 32
+)
+
+// emailRegex is a simple but effective email validation pattern
+var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+
+// ValidateUsername validates a username and returns an error message if invalid
+func ValidateUsername(username string) string <span class="cov6" title="21">{
+        username = strings.TrimSpace(username)
+
+        if username == "" </span><span class="cov3" title="3">{
+                return "username is required"
+        }</span>
+
+        <span class="cov6" title="18">if len(username) &lt; UsernameMinLength </span><span class="cov2" title="2">{
+                return "username must be at least 3 characters"
+        }</span>
+
+        <span class="cov6" title="16">if len(username) &gt; UsernameMaxLength </span><span class="cov1" title="1">{
+                return "username must be at most 32 characters"
+        }</span>
+
+        // Check that username contains only allowed characters (alphanumeric, underscore, hyphen)
+        <span class="cov6" title="15">for _, r := range username </span><span class="cov10" title="103">{
+                if !unicode.IsLetter(r) &amp;&amp; !unicode.IsDigit(r) &amp;&amp; r != '_' &amp;&amp; r != '-' </span><span class="cov3" title="3">{
+                        return "username can only contain letters, numbers, underscores, and hyphens"
+                }</span>
+        }
+
+        // Username must start with a letter
+        <span class="cov5" title="12">if !unicode.IsLetter(rune(username[0])) </span><span class="cov3" title="3">{
+                return "username must start with a letter"
+        }</span>
+
+        <span class="cov5" title="9">return ""</span>
+}
+
+// ValidateEmail validates an email address and returns an error message if invalid
+func ValidateEmail(email string) string <span class="cov6" title="15">{
+        email = strings.TrimSpace(email)
+
+        if email == "" </span><span class="cov3" title="3">{
+                return "email is required"
+        }</span>
+
+        <span class="cov5" title="12">if len(email) &gt; 254 </span><span class="cov1" title="1">{ // RFC 5321
+                return "email address is too long"
+        }</span>
+
+        <span class="cov5" title="11">if !emailRegex.MatchString(email) </span><span class="cov4" title="5">{
+                return "invalid email format"
+        }</span>
+
+        <span class="cov4" title="6">return ""</span>
+}
+
+// ValidatePollTitle validates a poll title and returns an error message if invalid
+func ValidatePollTitle(title string) string <span class="cov5" title="9">{
+        title = strings.TrimSpace(title)
+
+        if title == "" </span><span class="cov3" title="3">{
+                return "title is required"
+        }</span>
+
+        <span class="cov4" title="6">if len(title) &gt; 256 </span><span class="cov1" title="1">{
+                return "title must be at most 256 characters"
+        }</span>
+
+        <span class="cov4" title="5">return ""</span>
+}
+
+// ValidatePollOptions validates poll options and returns an error message if invalid
+func ValidatePollOptions(options []string) string <span class="cov5" title="12">{
+        if len(options) &lt; 2 </span><span class="cov3" title="4">{
+                return "at least 2 options are required"
+        }</span>
+
+        <span class="cov5" title="8">if len(options) &gt; 20 </span><span class="cov1" title="1">{
+                return "at most 20 options are allowed"
+        }</span>
+
+        <span class="cov4" title="7">for i, opt := range options </span><span class="cov6" title="17">{
+                opt = strings.TrimSpace(opt)
+                if opt == "" </span><span class="cov2" title="2">{
+                        return "option cannot be empty"
+                }</span>
+                <span class="cov6" title="15">if len(opt) &gt; 256 </span><span class="cov1" title="1">{
+                        return "option text must be at most 256 characters"
+                }</span>
+                <span class="cov6" title="14">options[i] = opt</span> // Normalize trimmed value
+        }
+
+        <span class="cov3" title="4">return ""</span>
+}
+</pre>
+		
+		<pre class="file" id="file59" style="display: none">package server
 
 import (
         "context"
         "encoding/json"
+        "errors"
         "log/slog"
         "net/http"
         "strconv"
@@ -15467,32 +15489,39 @@ import (
         "github.com/ivankorhner/polling-app/internal/ent/user"
 )
 
+// VoteRequest represents the request body for voting
 type VoteRequest struct {
         OptionID int `json:"option_id"`
         UserID   int `json:"user_id"`
 }
 
-func HandleVote(logger *slog.Logger, client *ent.Client) http.Handler <span class="cov10" title="8">{
-        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov10" title="8">{
+// HandleVote handles vote submission
+func HandleVote(logger *slog.Logger, client *ent.Client) http.Handler <span class="cov10" title="9">{
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov10" title="9">{
+                // Limit request body size
+                r.Body = http.MaxBytesReader(w, r.Body, MaxRequestBodySize)
+
                 pollIDStr := r.PathValue("id")
                 pollID, err := strconv.Atoi(pollIDStr)
                 if err != nil </span><span class="cov1" title="1">{
-                        http.Error(w, "invalid poll id", http.StatusBadRequest)
+                        writeValidationError(w, "invalid poll id")
                         return
                 }</span>
 
-                <span class="cov9" title="7">var req VoteRequest
-                if err := json.NewDecoder(r.Body).Decode(&amp;req); err != nil </span><span class="cov0" title="0">{
-                        http.Error(w, "invalid request body", http.StatusBadRequest)
+                <span class="cov9" title="8">logger.LogAttrs(r.Context(), slog.LevelInfo, "submit vote: starting", slog.Int("poll_id", pollID))
+
+                var req VoteRequest
+                if decodeErr := json.NewDecoder(r.Body).Decode(&amp;req); decodeErr != nil </span><span class="cov1" title="1">{
+                        writeValidationError(w, "invalid request body")
                         return
                 }</span>
 
-                <span class="cov9" title="7">if req.OptionID == 0 </span><span class="cov1" title="1">{
-                        http.Error(w, "option_id is required", http.StatusBadRequest)
+                <span class="cov8" title="7">if req.OptionID == 0 </span><span class="cov1" title="1">{
+                        writeValidationError(w, "option_id is required")
                         return
                 }</span>
                 <span class="cov8" title="6">if req.UserID == 0 </span><span class="cov1" title="1">{
-                        http.Error(w, "user_id is required", http.StatusBadRequest)
+                        writeValidationError(w, "user_id is required")
                         return
                 }</span>
 
@@ -15500,99 +15529,101 @@ func HandleVote(logger *slog.Logger, client *ent.Client) http.Handler <span clas
                 <span class="cov7" title="5">pollExists, err := client.Poll.Query().Where(entpoll.ID(pollID)).Exist(r.Context())
                 if err != nil </span><span class="cov0" title="0">{
                         logger.LogAttrs(r.Context(), slog.LevelError, "failed to check poll", slog.String("error", err.Error()))
-                        http.Error(w, "failed to submit vote", http.StatusInternalServerError)
+                        writeInternalError(w, "failed to submit vote")
                         return
                 }</span>
                 <span class="cov7" title="5">if !pollExists </span><span class="cov1" title="1">{
-                        http.Error(w, "poll not found", http.StatusNotFound)
+                        writeNotFoundError(w, "poll not found")
                         return
                 }</span>
 
                 // Verify option exists and belongs to poll
-                <span class="cov7" title="4">option, err := client.PollOption.Query().
+                <span class="cov6" title="4">optionExists, err := client.PollOption.Query().
                         Where(polloption.ID(req.OptionID), polloption.PollID(pollID)).
-                        Only(r.Context())
-                if err != nil </span><span class="cov1" title="1">{
-                        if ent.IsNotFound(err) </span><span class="cov1" title="1">{
-                                http.Error(w, "option not found or does not belong to poll", http.StatusBadRequest)
-                                return
-                        }</span>
-                        <span class="cov0" title="0">logger.LogAttrs(r.Context(), slog.LevelError, "failed to check option", slog.String("error", err.Error()))
-                        http.Error(w, "failed to submit vote", http.StatusInternalServerError)
-                        return</span>
-                }
+                        Exist(r.Context())
+                if err != nil </span><span class="cov0" title="0">{
+                        logger.LogAttrs(r.Context(), slog.LevelError, "failed to check option", slog.String("error", err.Error()))
+                        writeInternalError(w, "failed to submit vote")
+                        return
+                }</span>
+                <span class="cov6" title="4">if !optionExists </span><span class="cov1" title="1">{
+                        writeValidationError(w, "option not found or does not belong to poll")
+                        return
+                }</span>
 
                 // Verify user exists
                 <span class="cov5" title="3">userExists, err := client.User.Query().Where(user.ID(req.UserID)).Exist(r.Context())
                 if err != nil </span><span class="cov0" title="0">{
                         logger.LogAttrs(r.Context(), slog.LevelError, "failed to check user", slog.String("error", err.Error()))
-                        http.Error(w, "failed to submit vote", http.StatusInternalServerError)
+                        writeInternalError(w, "failed to submit vote")
                         return
                 }</span>
                 <span class="cov5" title="3">if !userExists </span><span class="cov1" title="1">{
-                        http.Error(w, "user not found", http.StatusBadRequest)
+                        writeValidationError(w, "user not found")
                         return
                 }</span>
 
-                // Create vote and increment vote count in transaction
-                <span class="cov4" title="2">err = createVoteWithIncrement(r.Context(), client, pollID, req.OptionID, req.UserID, option.VoteCount)
+                // Create vote (no need to increment vote_count anymore - it's calculated dynamically)
+                <span class="cov3" title="2">err = createVote(r.Context(), client, pollID, req.OptionID, req.UserID)
                 if err != nil </span><span class="cov1" title="1">{
                         if ent.IsConstraintError(err) </span><span class="cov1" title="1">{
-                                http.Error(w, "user has already voted on this poll", http.StatusConflict)
+                                writeConflictError(w, "user has already voted on this poll")
                                 return
                         }</span>
                         <span class="cov0" title="0">logger.LogAttrs(r.Context(), slog.LevelError, "failed to create vote", slog.String("error", err.Error()))
-                        http.Error(w, "failed to submit vote", http.StatusInternalServerError)
+                        writeInternalError(w, "failed to submit vote")
                         return</span>
                 }
 
-                // Return updated poll
+                // Return updated poll with vote counts
                 <span class="cov1" title="1">poll, err := client.Poll.Query().
                         Where(entpoll.ID(pollID)).
-                        WithOptions().
+                        WithOptions(func(q *ent.PollOptionQuery) </span><span class="cov1" title="1">{
+                                q.WithVotes()
+                        }</span>).
                         Only(r.Context())
-                if err != nil </span><span class="cov0" title="0">{
+                <span class="cov1" title="1">if err != nil </span><span class="cov0" title="0">{
                         logger.LogAttrs(r.Context(), slog.LevelError, "failed to reload poll", slog.String("error", err.Error()))
-                        http.Error(w, "failed to submit vote", http.StatusInternalServerError)
+                        writeInternalError(w, "failed to submit vote")
                         return
                 }</span>
 
-                <span class="cov1" title="1">w.Header().Set("Content-Type", "application/json")
+                <span class="cov1" title="1">logger.LogAttrs(
+                        r.Context(),
+                        slog.LevelInfo,
+                        "submit vote: completed",
+                        slog.Int("poll_id", pollID),
+                        slog.Int("option_id", req.OptionID),
+                        slog.Int("user_id", req.UserID),
+                )
+
+                w.Header().Set("Content-Type", "application/json")
                 if err := json.NewEncoder(w).Encode(mapPollToResponse(poll)); err != nil </span><span class="cov0" title="0">{
                         logger.LogAttrs(r.Context(), slog.LevelError, "failed to encode response", slog.String("error", err.Error()))
                 }</span>
         })
 }
 
-func createVoteWithIncrement(ctx context.Context, client *ent.Client, pollID, optionID, userID, currentVoteCount int) error <span class="cov4" title="2">{
+func createVote(ctx context.Context, client *ent.Client, pollID, optionID, userID int) error <span class="cov3" title="2">{
         tx, err := client.Tx(ctx)
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov4" title="2">_, err = tx.Vote.Create().
+        <span class="cov3" title="2">_, err = tx.Vote.Create().
                 SetPollID(pollID).
                 SetOptionID(optionID).
                 SetUserID(userID).
                 Save(ctx)
         if err != nil </span><span class="cov1" title="1">{
-                tx.Rollback()
-                return err
-        }</span>
-
-        <span class="cov1" title="1">err = tx.PollOption.UpdateOneID(optionID).
-                SetVoteCount(currentVoteCount + 1).
-                Exec(ctx)
-        if err != nil </span><span class="cov0" title="0">{
-                tx.Rollback()
-                return err
+                return errors.Join(err, tx.Rollback())
         }</span>
 
         <span class="cov1" title="1">return tx.Commit()</span>
 }
 </pre>
 		
-		<pre class="file" id="file58" style="display: none">package testutil
+		<pre class="file" id="file60" style="display: none">package testutil
 
 import (
         "context"
@@ -15603,11 +15634,13 @@ import (
 
         "entgo.io/ent/dialect"
         entsql "entgo.io/ent/dialect/sql"
-        "github.com/ivankorhner/polling-app/internal/ent"
-        _ "github.com/jackc/pgx/v5/stdlib"
         "github.com/testcontainers/testcontainers-go"
         "github.com/testcontainers/testcontainers-go/modules/postgres"
         "github.com/testcontainers/testcontainers-go/wait"
+
+        "github.com/ivankorhner/polling-app/internal/ent"
+
+        _ "github.com/jackc/pgx/v5/stdlib" // PostgreSQL driver
 )
 
 const (
@@ -15644,13 +15677,13 @@ func SetupTestDB(ctx context.Context, t *testing.T) *TestDB <span class="cov0" t
 
         <span class="cov0" title="0">connStr, err := container.ConnectionString(ctx, "sslmode=disable")
         if err != nil </span><span class="cov0" title="0">{
-                container.Terminate(ctx)
+                _ = container.Terminate(ctx)
                 t.Fatalf("failed to get connection string: %v", err)
         }</span>
 
         <span class="cov0" title="0">db, err := sql.Open("pgx", connStr)
         if err != nil </span><span class="cov0" title="0">{
-                container.Terminate(ctx)
+                _ = container.Terminate(ctx)
                 t.Fatalf("failed to open database: %v", err)
         }</span>
 
@@ -15660,7 +15693,7 @@ func SetupTestDB(ctx context.Context, t *testing.T) *TestDB <span class="cov0" t
         // Run auto-migration to create schema
         if err := client.Schema.Create(ctx); err != nil </span><span class="cov0" title="0">{
                 client.Close()
-                container.Terminate(ctx)
+                _ = container.Terminate(ctx)
                 t.Fatalf("failed to run migrations: %v", err)
         }</span>
 
@@ -15686,9 +15719,11 @@ func (tdb *TestDB) ConnectionString(ctx context.Context) (string, error) <span c
         if tdb.Container == nil </span><span class="cov0" title="0">{
                 return "", fmt.Errorf("container not initialized")
         }</span>
-        <span class="cov0" title="0">return tdb.Container.(interface {
-                ConnectionString(context.Context, ...string) (string, error)
-        }).ConnectionString(ctx, "sslmode=disable")</span>
+        <span class="cov0" title="0">pc, ok := tdb.Container.(*postgres.PostgresContainer)
+        if !ok </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("container is not a PostgresContainer")
+        }</span>
+        <span class="cov0" title="0">return pc.ConnectionString(ctx, "sslmode=disable")</span>
 }
 </pre>
 		

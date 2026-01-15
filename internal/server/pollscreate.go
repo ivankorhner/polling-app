@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -11,30 +12,42 @@ import (
 	"github.com/ivankorhner/polling-app/internal/ent/user"
 )
 
+// CreatePollRequest represents the request body for poll creation
 type CreatePollRequest struct {
 	OwnerID int      `json:"owner_id"`
 	Title   string   `json:"title"`
 	Options []string `json:"options"`
 }
 
+// HandleCreatePoll handles poll creation
 func HandleCreatePoll(logger *slog.Logger, client *ent.Client) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger.LogAttrs(r.Context(), slog.LevelInfo, "create poll: starting")
+
+		// Limit request body size
+		r.Body = http.MaxBytesReader(w, r.Body, MaxRequestBodySize)
+
 		var req CreatePollRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "invalid request body", http.StatusBadRequest)
+			writeValidationError(w, "invalid request body")
 			return
 		}
 
-		if req.Title == "" {
-			http.Error(w, "title is required", http.StatusBadRequest)
+		// Validate title
+		if errMsg := ValidatePollTitle(req.Title); errMsg != "" {
+			writeValidationError(w, errMsg)
 			return
 		}
+
+		// Validate owner_id
 		if req.OwnerID == 0 {
-			http.Error(w, "owner_id is required", http.StatusBadRequest)
+			writeValidationError(w, "owner_id is required")
 			return
 		}
-		if len(req.Options) < 2 {
-			http.Error(w, "at least 2 options are required", http.StatusBadRequest)
+
+		// Validate options
+		if errMsg := ValidatePollOptions(req.Options); errMsg != "" {
+			writeValidationError(w, errMsg)
 			return
 		}
 
@@ -47,11 +60,11 @@ func HandleCreatePoll(logger *slog.Logger, client *ent.Client) http.Handler {
 				"failed to check user existence",
 				slog.String("error", err.Error()),
 			)
-			http.Error(w, "failed to create poll", http.StatusInternalServerError)
+			writeInternalError(w, "failed to create poll")
 			return
 		}
 		if !exists {
-			http.Error(w, "owner not found", http.StatusBadRequest)
+			writeValidationError(w, "owner not found")
 			return
 		}
 
@@ -63,14 +76,16 @@ func HandleCreatePoll(logger *slog.Logger, client *ent.Client) http.Handler {
 				"failed to create poll",
 				slog.String("error", err.Error()),
 			)
-			http.Error(w, "failed to create poll", http.StatusInternalServerError)
+			writeInternalError(w, "failed to create poll")
 			return
 		}
 
-		// Reload poll with options
+		// Reload poll with options and vote counts
 		poll, err = client.Poll.Query().
 			Where(entpoll.ID(poll.ID)).
-			WithOptions().
+			WithOptions(func(q *ent.PollOptionQuery) {
+				q.WithVotes()
+			}).
 			Only(r.Context())
 		if err != nil {
 			logger.LogAttrs(
@@ -79,9 +94,18 @@ func HandleCreatePoll(logger *slog.Logger, client *ent.Client) http.Handler {
 				"failed to reload poll",
 				slog.String("error", err.Error()),
 			)
-			http.Error(w, "failed to create poll", http.StatusInternalServerError)
+			writeInternalError(w, "failed to create poll")
 			return
 		}
+
+		logger.LogAttrs(
+			r.Context(),
+			slog.LevelInfo,
+			"create poll: completed",
+			slog.Int("poll_id", poll.ID),
+			slog.String("title", poll.Title),
+			slog.Int("options_count", len(poll.Edges.Options)),
+		)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
@@ -107,8 +131,7 @@ func createPollWithOptions(ctx context.Context, client *ent.Client, req CreatePo
 		SetTitle(req.Title).
 		Save(ctx)
 	if err != nil {
-		_ = tx.Rollback()
-		return nil, err
+		return nil, errors.Join(err, tx.Rollback())
 	}
 
 	for _, optionText := range req.Options {
@@ -117,8 +140,7 @@ func createPollWithOptions(ctx context.Context, client *ent.Client, req CreatePo
 			SetText(optionText).
 			Save(ctx)
 		if err != nil {
-			_ = tx.Rollback()
-			return nil, err
+			return nil, errors.Join(err, tx.Rollback())
 		}
 	}
 

@@ -11,6 +11,7 @@ A polling application built with Go and PostgreSQL.
 ## Out of Scope
 
 - Authentication/Authorization
+- Pagination in List Polls
 
 ## Tech Stack
 

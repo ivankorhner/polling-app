@@ -6,30 +6,32 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+
 	"github.com/ivankorhner/polling-app/internal/logging"
 )
 
-const RequestIdKey string = "request_id"
+// RequestIDKey is the context key for storing request IDs
+const RequestIDKey string = "request_id"
 
-func requestIdFromContext(ctx context.Context) string {
-	if reqId, ok := ctx.Value(RequestIdKey).(string); ok {
-		return reqId
+func requestIDFromContext(ctx context.Context) string {
+	if reqID, ok := ctx.Value(RequestIDKey).(string); ok {
+		return reqID
 	}
 	return ""
 }
 
-func requestId(logger *slog.Logger, next http.Handler) http.Handler {
+func requestID(logger *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		if existing := requestIdFromContext(ctx); existing == "" {
-			reqId := generateRequestId()
-			ctx = logging.AppendCtx(ctx, slog.String(RequestIdKey, reqId))
+		if existing := requestIDFromContext(ctx); existing == "" {
+			reqID := generateRequestID()
+			ctx = logging.AppendCtx(ctx, slog.String(RequestIDKey, reqID))
 			r = r.WithContext(ctx)
 		}
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
-func generateRequestId() string {
+func generateRequestID() string {
 	return uuid.New().String()
 }

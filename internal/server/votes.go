@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -13,32 +14,39 @@ import (
 	"github.com/ivankorhner/polling-app/internal/ent/user"
 )
 
+// VoteRequest represents the request body for voting
 type VoteRequest struct {
 	OptionID int `json:"option_id"`
 	UserID   int `json:"user_id"`
 }
 
+// HandleVote handles vote submission
 func HandleVote(logger *slog.Logger, client *ent.Client) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Limit request body size
+		r.Body = http.MaxBytesReader(w, r.Body, MaxRequestBodySize)
+
 		pollIDStr := r.PathValue("id")
 		pollID, err := strconv.Atoi(pollIDStr)
 		if err != nil {
-			http.Error(w, "invalid poll id", http.StatusBadRequest)
+			writeValidationError(w, "invalid poll id")
 			return
 		}
 
+		logger.LogAttrs(r.Context(), slog.LevelInfo, "submit vote: starting", slog.Int("poll_id", pollID))
+
 		var req VoteRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "invalid request body", http.StatusBadRequest)
+		if decodeErr := json.NewDecoder(r.Body).Decode(&req); decodeErr != nil {
+			writeValidationError(w, "invalid request body")
 			return
 		}
 
 		if req.OptionID == 0 {
-			http.Error(w, "option_id is required", http.StatusBadRequest)
+			writeValidationError(w, "option_id is required")
 			return
 		}
 		if req.UserID == 0 {
-			http.Error(w, "user_id is required", http.StatusBadRequest)
+			writeValidationError(w, "user_id is required")
 			return
 		}
 
@@ -46,25 +54,25 @@ func HandleVote(logger *slog.Logger, client *ent.Client) http.Handler {
 		pollExists, err := client.Poll.Query().Where(entpoll.ID(pollID)).Exist(r.Context())
 		if err != nil {
 			logger.LogAttrs(r.Context(), slog.LevelError, "failed to check poll", slog.String("error", err.Error()))
-			http.Error(w, "failed to submit vote", http.StatusInternalServerError)
+			writeInternalError(w, "failed to submit vote")
 			return
 		}
 		if !pollExists {
-			http.Error(w, "poll not found", http.StatusNotFound)
+			writeNotFoundError(w, "poll not found")
 			return
 		}
 
 		// Verify option exists and belongs to poll
-		option, err := client.PollOption.Query().
+		optionExists, err := client.PollOption.Query().
 			Where(polloption.ID(req.OptionID), polloption.PollID(pollID)).
-			Only(r.Context())
+			Exist(r.Context())
 		if err != nil {
-			if ent.IsNotFound(err) {
-				http.Error(w, "option not found or does not belong to poll", http.StatusBadRequest)
-				return
-			}
 			logger.LogAttrs(r.Context(), slog.LevelError, "failed to check option", slog.String("error", err.Error()))
-			http.Error(w, "failed to submit vote", http.StatusInternalServerError)
+			writeInternalError(w, "failed to submit vote")
+			return
+		}
+		if !optionExists {
+			writeValidationError(w, "option not found or does not belong to poll")
 			return
 		}
 
@@ -72,36 +80,47 @@ func HandleVote(logger *slog.Logger, client *ent.Client) http.Handler {
 		userExists, err := client.User.Query().Where(user.ID(req.UserID)).Exist(r.Context())
 		if err != nil {
 			logger.LogAttrs(r.Context(), slog.LevelError, "failed to check user", slog.String("error", err.Error()))
-			http.Error(w, "failed to submit vote", http.StatusInternalServerError)
+			writeInternalError(w, "failed to submit vote")
 			return
 		}
 		if !userExists {
-			http.Error(w, "user not found", http.StatusBadRequest)
+			writeValidationError(w, "user not found")
 			return
 		}
 
-		// Create vote and increment vote count in transaction
-		err = createVoteWithIncrement(r.Context(), client, pollID, req.OptionID, req.UserID, option.VoteCount)
+		// Create vote (no need to increment vote_count anymore - it's calculated dynamically)
+		err = createVote(r.Context(), client, pollID, req.OptionID, req.UserID)
 		if err != nil {
 			if ent.IsConstraintError(err) {
-				http.Error(w, "user has already voted on this poll", http.StatusConflict)
+				writeConflictError(w, "user has already voted on this poll")
 				return
 			}
 			logger.LogAttrs(r.Context(), slog.LevelError, "failed to create vote", slog.String("error", err.Error()))
-			http.Error(w, "failed to submit vote", http.StatusInternalServerError)
+			writeInternalError(w, "failed to submit vote")
 			return
 		}
 
-		// Return updated poll
+		// Return updated poll with vote counts
 		poll, err := client.Poll.Query().
 			Where(entpoll.ID(pollID)).
-			WithOptions().
+			WithOptions(func(q *ent.PollOptionQuery) {
+				q.WithVotes()
+			}).
 			Only(r.Context())
 		if err != nil {
 			logger.LogAttrs(r.Context(), slog.LevelError, "failed to reload poll", slog.String("error", err.Error()))
-			http.Error(w, "failed to submit vote", http.StatusInternalServerError)
+			writeInternalError(w, "failed to submit vote")
 			return
 		}
+
+		logger.LogAttrs(
+			r.Context(),
+			slog.LevelInfo,
+			"submit vote: completed",
+			slog.Int("poll_id", pollID),
+			slog.Int("option_id", req.OptionID),
+			slog.Int("user_id", req.UserID),
+		)
 
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(mapPollToResponse(poll)); err != nil {
@@ -110,7 +129,7 @@ func HandleVote(logger *slog.Logger, client *ent.Client) http.Handler {
 	})
 }
 
-func createVoteWithIncrement(ctx context.Context, client *ent.Client, pollID, optionID, userID, currentVoteCount int) error {
+func createVote(ctx context.Context, client *ent.Client, pollID, optionID, userID int) error {
 	tx, err := client.Tx(ctx)
 	if err != nil {
 		return err
@@ -122,16 +141,7 @@ func createVoteWithIncrement(ctx context.Context, client *ent.Client, pollID, op
 		SetUserID(userID).
 		Save(ctx)
 	if err != nil {
-		_ = tx.Rollback()
-		return err
-	}
-
-	err = tx.PollOption.UpdateOneID(optionID).
-		SetVoteCount(currentVoteCount + 1).
-		Exec(ctx)
-	if err != nil {
-		_ = tx.Rollback()
-		return err
+		return errors.Join(err, tx.Rollback())
 	}
 
 	return tx.Commit()

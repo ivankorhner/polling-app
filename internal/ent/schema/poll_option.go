@@ -21,9 +21,6 @@ func (PollOption) Fields() []ent.Field {
 			Immutable(),
 		field.String("text").
 			NotEmpty(),
-		field.Int("vote_count").
-			Default(0).
-			NonNegative(),
 		field.Time("created_at").
 			Default(time.Now),
 	}

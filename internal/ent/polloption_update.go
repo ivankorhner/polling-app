@@ -43,27 +43,6 @@ func (_u *PollOptionUpdate) SetNillableText(v *string) *PollOptionUpdate {
 	return _u
 }
 
-// SetVoteCount sets the "vote_count" field.
-func (_u *PollOptionUpdate) SetVoteCount(v int) *PollOptionUpdate {
-	_u.mutation.ResetVoteCount()
-	_u.mutation.SetVoteCount(v)
-	return _u
-}
-
-// SetNillableVoteCount sets the "vote_count" field if the given value is not nil.
-func (_u *PollOptionUpdate) SetNillableVoteCount(v *int) *PollOptionUpdate {
-	if v != nil {
-		_u.SetVoteCount(*v)
-	}
-	return _u
-}
-
-// AddVoteCount adds value to the "vote_count" field.
-func (_u *PollOptionUpdate) AddVoteCount(v int) *PollOptionUpdate {
-	_u.mutation.AddVoteCount(v)
-	return _u
-}
-
 // SetCreatedAt sets the "created_at" field.
 func (_u *PollOptionUpdate) SetCreatedAt(v time.Time) *PollOptionUpdate {
 	_u.mutation.SetCreatedAt(v)
@@ -153,11 +132,6 @@ func (_u *PollOptionUpdate) check() error {
 			return &ValidationError{Name: "text", err: fmt.Errorf(`ent: validator failed for field "PollOption.text": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.VoteCount(); ok {
-		if err := polloption.VoteCountValidator(v); err != nil {
-			return &ValidationError{Name: "vote_count", err: fmt.Errorf(`ent: validator failed for field "PollOption.vote_count": %w`, err)}
-		}
-	}
 	if _u.mutation.PollCleared() && len(_u.mutation.PollIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "PollOption.poll"`)
 	}
@@ -178,12 +152,6 @@ func (_u *PollOptionUpdate) sqlSave(ctx context.Context) (_node int, err error) 
 	}
 	if value, ok := _u.mutation.Text(); ok {
 		_spec.SetField(polloption.FieldText, field.TypeString, value)
-	}
-	if value, ok := _u.mutation.VoteCount(); ok {
-		_spec.SetField(polloption.FieldVoteCount, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.AddedVoteCount(); ok {
-		_spec.AddField(polloption.FieldVoteCount, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.CreatedAt(); ok {
 		_spec.SetField(polloption.FieldCreatedAt, field.TypeTime, value)
@@ -264,27 +232,6 @@ func (_u *PollOptionUpdateOne) SetNillableText(v *string) *PollOptionUpdateOne {
 	if v != nil {
 		_u.SetText(*v)
 	}
-	return _u
-}
-
-// SetVoteCount sets the "vote_count" field.
-func (_u *PollOptionUpdateOne) SetVoteCount(v int) *PollOptionUpdateOne {
-	_u.mutation.ResetVoteCount()
-	_u.mutation.SetVoteCount(v)
-	return _u
-}
-
-// SetNillableVoteCount sets the "vote_count" field if the given value is not nil.
-func (_u *PollOptionUpdateOne) SetNillableVoteCount(v *int) *PollOptionUpdateOne {
-	if v != nil {
-		_u.SetVoteCount(*v)
-	}
-	return _u
-}
-
-// AddVoteCount adds value to the "vote_count" field.
-func (_u *PollOptionUpdateOne) AddVoteCount(v int) *PollOptionUpdateOne {
-	_u.mutation.AddVoteCount(v)
 	return _u
 }
 
@@ -390,11 +337,6 @@ func (_u *PollOptionUpdateOne) check() error {
 			return &ValidationError{Name: "text", err: fmt.Errorf(`ent: validator failed for field "PollOption.text": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.VoteCount(); ok {
-		if err := polloption.VoteCountValidator(v); err != nil {
-			return &ValidationError{Name: "vote_count", err: fmt.Errorf(`ent: validator failed for field "PollOption.vote_count": %w`, err)}
-		}
-	}
 	if _u.mutation.PollCleared() && len(_u.mutation.PollIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "PollOption.poll"`)
 	}
@@ -432,12 +374,6 @@ func (_u *PollOptionUpdateOne) sqlSave(ctx context.Context) (_node *PollOption, 
 	}
 	if value, ok := _u.mutation.Text(); ok {
 		_spec.SetField(polloption.FieldText, field.TypeString, value)
-	}
-	if value, ok := _u.mutation.VoteCount(); ok {
-		_spec.SetField(polloption.FieldVoteCount, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.AddedVoteCount(); ok {
-		_spec.AddField(polloption.FieldVoteCount, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.CreatedAt(); ok {
 		_spec.SetField(polloption.FieldCreatedAt, field.TypeTime, value)

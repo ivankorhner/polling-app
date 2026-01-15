@@ -4,6 +4,7 @@ package server_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -17,104 +18,134 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestHandleDeletePoll_Success(t *testing.T) {
-	ctx := context.Background()
-	testDB := testutil.SetupTestDB(ctx, t)
-	defer testDB.Teardown(ctx)
+func TestHandleDeletePoll(t *testing.T) {
+	tests := []struct {
+		name       string
+		setup      func(ctx context.Context, testDB *testutil.TestDB) int
+		pathID     string
+		wantStatus int
+		checkBody  func(t *testing.T, rec *httptest.ResponseRecorder)
+	}{
+		{
+			name: "success",
+			setup: func(ctx context.Context, testDB *testutil.TestDB) int {
+				user, _ := testDB.Client.User.Create().
+					SetUsername("testuser").
+					SetEmail("test@example.com").
+					Save(ctx)
+				poll, _ := testDB.Client.Poll.Create().
+					SetOwnerID(user.ID).
+					SetTitle("Test Poll").
+					Save(ctx)
+				testDB.Client.PollOption.Create().
+					SetPollID(poll.ID).
+					SetText("Option 1").
+					Save(ctx)
+				return poll.ID
+			},
+			wantStatus: http.StatusNoContent,
+			checkBody:  nil,
+		},
+		{
+			name: "not found",
+			setup: func(ctx context.Context, testDB *testutil.TestDB) int {
+				return 99999
+			},
+			wantStatus: http.StatusNotFound,
+			checkBody: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				var errResp server.ErrorResponse
+				err := json.Unmarshal(rec.Body.Bytes(), &errResp)
+				require.NoError(t, err)
+				assert.Equal(t, "poll not found", errResp.Error)
+			},
+		},
+		{
+			name: "invalid ID",
+			setup: func(ctx context.Context, testDB *testutil.TestDB) int {
+				return 0
+			},
+			pathID:     "invalid",
+			wantStatus: http.StatusBadRequest,
+			checkBody: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				var errResp server.ErrorResponse
+				err := json.Unmarshal(rec.Body.Bytes(), &errResp)
+				require.NoError(t, err)
+				assert.Equal(t, "invalid poll id", errResp.Error)
+			},
+		},
+	}
 
-	// Create owner
-	owner, err := testDB.Client.User.Create().
-		SetUsername("owner").
-		SetEmail("owner@example.com").
-		Save(ctx)
-	require.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			testDB := testutil.SetupTestDB(ctx, t)
+			defer testDB.Teardown(ctx)
 
-	// Create poll
-	poll, err := testDB.Client.Poll.Create().
-		SetOwnerID(owner.ID).
-		SetTitle("Test Poll").
-		Save(ctx)
-	require.NoError(t, err)
+			pollID := tt.setup(ctx, testDB)
+			pathID := tt.pathID
+			if pathID == "" {
+				pathID = fmt.Sprintf("%d", pollID)
+			}
 
-	// Create options
-	_, err = testDB.Client.PollOption.Create().
-		SetPollID(poll.ID).
-		SetText("Option 1").
-		SetVoteCount(0).
-		Save(ctx)
-	require.NoError(t, err)
+			logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+			req := httptest.NewRequest(http.MethodDelete, "/polls/"+pathID, nil)
+			req.SetPathValue("id", pathID)
+			rec := httptest.NewRecorder()
 
-	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/polls/%d", poll.ID), nil)
-	req.SetPathValue("id", fmt.Sprintf("%d", poll.ID))
-	rec := httptest.NewRecorder()
+			handler := server.HandleDeletePoll(logger, testDB.Client)
+			handler.ServeHTTP(rec, req)
 
-	handler := server.HandleDeletePoll(logger, testDB.Client)
-	handler.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusNoContent, rec.Code)
-
-	// Verify poll is deleted
-	exists, err := testDB.Client.Poll.Query().Where().Exist(ctx)
-	require.NoError(t, err)
-	assert.False(t, exists)
-
-	// Verify options are deleted
-	optCount, err := testDB.Client.PollOption.Query().Count(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, 0, optCount)
-
-	// Verify owner still exists
-	ownerExists, err := testDB.Client.User.Query().Exist(ctx)
-	require.NoError(t, err)
-	assert.True(t, ownerExists, "owner should not be deleted")
+			assert.Equal(t, tt.wantStatus, rec.Code)
+			if tt.checkBody != nil {
+				tt.checkBody(t, rec)
+			}
+		})
+	}
 }
 
-func TestHandleDeletePoll_WithVotes(t *testing.T) {
+func TestHandleDeletePoll_CascadeDelete(t *testing.T) {
 	ctx := context.Background()
 	testDB := testutil.SetupTestDB(ctx, t)
 	defer testDB.Teardown(ctx)
 
-	// Create owner
-	owner, err := testDB.Client.User.Create().
-		SetUsername("owner").
-		SetEmail("owner@example.com").
+	// Create user
+	user, err := testDB.Client.User.Create().
+		SetUsername("testuser").
+		SetEmail("test@example.com").
 		Save(ctx)
 	require.NoError(t, err)
 
-	// Create voter
-	voter, err := testDB.Client.User.Create().
-		SetUsername("voter").
-		SetEmail("voter@example.com").
-		Save(ctx)
-	require.NoError(t, err)
-
-	// Create poll
+	// Create poll with options and votes
 	poll, err := testDB.Client.Poll.Create().
-		SetOwnerID(owner.ID).
+		SetOwnerID(user.ID).
 		SetTitle("Test Poll").
 		Save(ctx)
 	require.NoError(t, err)
 
-	// Create option
 	option, err := testDB.Client.PollOption.Create().
 		SetPollID(poll.ID).
 		SetText("Option 1").
-		SetVoteCount(1).
 		Save(ctx)
 	require.NoError(t, err)
 
-	// Create vote
 	_, err = testDB.Client.Vote.Create().
 		SetPollID(poll.ID).
 		SetOptionID(option.ID).
-		SetUserID(voter.ID).
+		SetUserID(user.ID).
 		Save(ctx)
 	require.NoError(t, err)
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	// Verify entities exist
+	pollCount, _ := testDB.Client.Poll.Query().Count(ctx)
+	optionCount, _ := testDB.Client.PollOption.Query().Count(ctx)
+	voteCount, _ := testDB.Client.Vote.Query().Count(ctx)
+	assert.Equal(t, 1, pollCount)
+	assert.Equal(t, 1, optionCount)
+	assert.Equal(t, 1, voteCount)
 
+	// Delete poll
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/polls/%d", poll.ID), nil)
 	req.SetPathValue("id", fmt.Sprintf("%d", poll.ID))
 	rec := httptest.NewRecorder()
@@ -124,62 +155,15 @@ func TestHandleDeletePoll_WithVotes(t *testing.T) {
 
 	assert.Equal(t, http.StatusNoContent, rec.Code)
 
-	// Verify poll is deleted
-	pollExists, err := testDB.Client.Poll.Query().Exist(ctx)
-	require.NoError(t, err)
-	assert.False(t, pollExists)
-
-	// Verify votes are deleted
-	voteCount, err := testDB.Client.Vote.Query().Count(ctx)
-	require.NoError(t, err)
+	// Verify all related entities are deleted
+	pollCount, _ = testDB.Client.Poll.Query().Count(ctx)
+	optionCount, _ = testDB.Client.PollOption.Query().Count(ctx)
+	voteCount, _ = testDB.Client.Vote.Query().Count(ctx)
+	assert.Equal(t, 0, pollCount)
+	assert.Equal(t, 0, optionCount)
 	assert.Equal(t, 0, voteCount)
 
-	// Verify options are deleted
-	optCount, err := testDB.Client.PollOption.Query().Count(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, 0, optCount)
-
-	// Verify owner still exists
-	ownerExists, err := testDB.Client.User.Query().Exist(ctx)
-	require.NoError(t, err)
-	assert.True(t, ownerExists, "users should not be deleted")
-
-	// Verify both users still exist
-	userCount, err := testDB.Client.User.Query().Count(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, 2, userCount, "both owner and voter should still exist")
-}
-
-func TestHandleDeletePoll_NotFound(t *testing.T) {
-	ctx := context.Background()
-	testDB := testutil.SetupTestDB(ctx, t)
-	defer testDB.Teardown(ctx)
-
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-
-	req := httptest.NewRequest(http.MethodDelete, "/polls/99999", nil)
-	req.SetPathValue("id", "99999")
-	rec := httptest.NewRecorder()
-
-	handler := server.HandleDeletePoll(logger, testDB.Client)
-	handler.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusNotFound, rec.Code)
-}
-
-func TestHandleDeletePoll_InvalidID(t *testing.T) {
-	ctx := context.Background()
-	testDB := testutil.SetupTestDB(ctx, t)
-	defer testDB.Teardown(ctx)
-
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-
-	req := httptest.NewRequest(http.MethodDelete, "/polls/invalid", nil)
-	req.SetPathValue("id", "invalid")
-	rec := httptest.NewRecorder()
-
-	handler := server.HandleDeletePoll(logger, testDB.Client)
-	handler.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	// User should still exist
+	userCount, _ := testDB.Client.User.Query().Count(ctx)
+	assert.Equal(t, 1, userCount)
 }

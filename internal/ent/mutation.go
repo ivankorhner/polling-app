@@ -705,8 +705,6 @@ type PollOptionMutation struct {
 	typ           string
 	id            *int
 	text          *string
-	vote_count    *int
-	addvote_count *int
 	created_at    *time.Time
 	clearedFields map[string]struct{}
 	poll          *int
@@ -895,62 +893,6 @@ func (m *PollOptionMutation) ResetText() {
 	m.text = nil
 }
 
-// SetVoteCount sets the "vote_count" field.
-func (m *PollOptionMutation) SetVoteCount(i int) {
-	m.vote_count = &i
-	m.addvote_count = nil
-}
-
-// VoteCount returns the value of the "vote_count" field in the mutation.
-func (m *PollOptionMutation) VoteCount() (r int, exists bool) {
-	v := m.vote_count
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldVoteCount returns the old "vote_count" field's value of the PollOption entity.
-// If the PollOption object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *PollOptionMutation) OldVoteCount(ctx context.Context) (v int, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldVoteCount is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldVoteCount requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldVoteCount: %w", err)
-	}
-	return oldValue.VoteCount, nil
-}
-
-// AddVoteCount adds i to the "vote_count" field.
-func (m *PollOptionMutation) AddVoteCount(i int) {
-	if m.addvote_count != nil {
-		*m.addvote_count += i
-	} else {
-		m.addvote_count = &i
-	}
-}
-
-// AddedVoteCount returns the value that was added to the "vote_count" field in this mutation.
-func (m *PollOptionMutation) AddedVoteCount() (r int, exists bool) {
-	v := m.addvote_count
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ResetVoteCount resets all changes to the "vote_count" field.
-func (m *PollOptionMutation) ResetVoteCount() {
-	m.vote_count = nil
-	m.addvote_count = nil
-}
-
 // SetCreatedAt sets the "created_at" field.
 func (m *PollOptionMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -1102,15 +1044,12 @@ func (m *PollOptionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *PollOptionMutation) Fields() []string {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 3)
 	if m.poll != nil {
 		fields = append(fields, polloption.FieldPollID)
 	}
 	if m.text != nil {
 		fields = append(fields, polloption.FieldText)
-	}
-	if m.vote_count != nil {
-		fields = append(fields, polloption.FieldVoteCount)
 	}
 	if m.created_at != nil {
 		fields = append(fields, polloption.FieldCreatedAt)
@@ -1127,8 +1066,6 @@ func (m *PollOptionMutation) Field(name string) (ent.Value, bool) {
 		return m.PollID()
 	case polloption.FieldText:
 		return m.Text()
-	case polloption.FieldVoteCount:
-		return m.VoteCount()
 	case polloption.FieldCreatedAt:
 		return m.CreatedAt()
 	}
@@ -1144,8 +1081,6 @@ func (m *PollOptionMutation) OldField(ctx context.Context, name string) (ent.Val
 		return m.OldPollID(ctx)
 	case polloption.FieldText:
 		return m.OldText(ctx)
-	case polloption.FieldVoteCount:
-		return m.OldVoteCount(ctx)
 	case polloption.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	}
@@ -1171,13 +1106,6 @@ func (m *PollOptionMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetText(v)
 		return nil
-	case polloption.FieldVoteCount:
-		v, ok := value.(int)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetVoteCount(v)
-		return nil
 	case polloption.FieldCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -1193,9 +1121,6 @@ func (m *PollOptionMutation) SetField(name string, value ent.Value) error {
 // this mutation.
 func (m *PollOptionMutation) AddedFields() []string {
 	var fields []string
-	if m.addvote_count != nil {
-		fields = append(fields, polloption.FieldVoteCount)
-	}
 	return fields
 }
 
@@ -1204,8 +1129,6 @@ func (m *PollOptionMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *PollOptionMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
-	case polloption.FieldVoteCount:
-		return m.AddedVoteCount()
 	}
 	return nil, false
 }
@@ -1215,13 +1138,6 @@ func (m *PollOptionMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *PollOptionMutation) AddField(name string, value ent.Value) error {
 	switch name {
-	case polloption.FieldVoteCount:
-		v, ok := value.(int)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddVoteCount(v)
-		return nil
 	}
 	return fmt.Errorf("unknown PollOption numeric field %s", name)
 }
@@ -1254,9 +1170,6 @@ func (m *PollOptionMutation) ResetField(name string) error {
 		return nil
 	case polloption.FieldText:
 		m.ResetText()
-		return nil
-	case polloption.FieldVoteCount:
-		m.ResetVoteCount()
 		return nil
 	case polloption.FieldCreatedAt:
 		m.ResetCreatedAt()

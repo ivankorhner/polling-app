@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"log/slog"
 	"net/http"
 
@@ -10,17 +11,19 @@ import (
 	"github.com/ivankorhner/polling-app/internal/server/middleware"
 )
 
+// AddRoutes configures all HTTP routes for the server
 func AddRoutes(
 	ctx context.Context,
 	config *config.Config,
 	logger *slog.Logger,
+	db *sql.DB,
 	client *ent.Client,
 ) http.Handler {
 	mux := http.NewServeMux()
 
 	middlewares := middleware.NewDefaults(ctx, config, logger)
 
-	mux.Handle(http.MethodGet+" /health", HandleHealth(logger))
+	mux.Handle(http.MethodGet+" /health", HandleHealth(logger, db))
 	mux.Handle(http.MethodGet+" /polls", HandleListPolls(logger, client))
 	mux.Handle(http.MethodGet+" /polls/{id}", HandleGetPoll(logger, client))
 	mux.Handle(http.MethodPost+" /polls", HandleCreatePoll(logger, client))

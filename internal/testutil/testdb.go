@@ -9,11 +9,13 @@ import (
 
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
-	"github.com/ivankorhner/polling-app/internal/ent"
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
+
+	"github.com/ivankorhner/polling-app/internal/ent"
+
+	_ "github.com/jackc/pgx/v5/stdlib" // PostgreSQL driver
 )
 
 const (
@@ -92,7 +94,9 @@ func (tdb *TestDB) ConnectionString(ctx context.Context) (string, error) {
 	if tdb.Container == nil {
 		return "", fmt.Errorf("container not initialized")
 	}
-	return tdb.Container.(interface {
-		ConnectionString(context.Context, ...string) (string, error)
-	}).ConnectionString(ctx, "sslmode=disable")
+	pc, ok := tdb.Container.(*postgres.PostgresContainer)
+	if !ok {
+		return "", fmt.Errorf("container is not a PostgresContainer")
+	}
+	return pc.ConnectionString(ctx, "sslmode=disable")
 }

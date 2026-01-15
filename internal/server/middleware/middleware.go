@@ -16,9 +16,9 @@ func NewDefaults(
 	return func(h http.Handler) http.Handler {
 		// Correct order: panic recovery outermost, then request tracking, then timeout
 		return panicRecovery(logger,
-			requestId(logger,
+			requestID(logger,
 				httpRequest(logger,
-					timeout(config.ApiTimeout, h),
+					timeout(config.APITimeout, h),
 				),
 			),
 		)

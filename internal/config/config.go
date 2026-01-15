@@ -7,11 +7,12 @@ import (
 	"time"
 )
 
+// Config holds the application configuration
 type Config struct {
 	// HTTP Server config
 	Port       int
 	Host       string
-	ApiTimeout time.Duration
+	APITimeout time.Duration
 
 	// Database config
 	DBHost     string
@@ -27,7 +28,7 @@ func LoadConfig() *Config {
 		// HTTP defaults
 		Port:       8080,
 		Host:       "localhost",
-		ApiTimeout: 30 * time.Second, // Increased from 1s to 30s
+		APITimeout: 30 * time.Second,
 
 		// Database defaults
 		DBHost:     "localhost",
@@ -50,7 +51,7 @@ func LoadConfig() *Config {
 
 	if timeout := os.Getenv("API_TIMEOUT"); timeout != "" {
 		if t, err := time.ParseDuration(timeout); err == nil {
-			cfg.ApiTimeout = t
+			cfg.APITimeout = t
 		}
 	}
 
