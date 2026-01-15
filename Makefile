@@ -1,4 +1,4 @@
-.PHONY: help build run test lint clean ent ent-gen install-atlas migrate-new migrate-apply migrate-status migrate-validate migrate-rollback migrate-reset migrate-ci migrate-hash db-up db-down db-shell seed
+.PHONY: help build run test test-integration lint clean ent ent-gen install-atlas migrate-new migrate-apply migrate-status migrate-validate migrate-rollback migrate-reset migrate-ci migrate-hash db-up db-down db-shell seed
 
 # Variables
 BINARY_NAME=polling-app
@@ -33,9 +33,12 @@ build: ## Build the application
 run: ## Run the application with go run
 	$(GO) run ./cmd/server
 
-test: ## Run tests
+test: ## Run unit tests (no Docker required)
 	$(GO) test $(GOFLAGS) -race -coverprofile=coverage.out ./...
 	$(GO) tool cover -html=coverage.out -o coverage.html
+
+test-integration: ## Run integration tests (requires Docker)
+	$(GO) test $(GOFLAGS) -race -tags=integration -count=1 ./...
 
 lint: ## Run linters (golangci-lint)
 	@which golangci-lint > /dev/null || (echo "Installing golangci-lint..." && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest)
