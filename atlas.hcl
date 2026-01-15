@@ -1,25 +1,10 @@
 # Atlas migration configuration
 # See: https://atlasgo.io/cli/intro
 
-env "local" {
+env {
   src = "ent://internal/ent/schema"
-  dev = "sqlite://?mode=memory"
-  
-  migration {
-    dir = "file://internal/migrate/migrations"
-    format = atlas
-  }
-  
-  format {
-    migrate {
-      diff = "{{ sql . }}"
-    }
-  }
-}
-
-env "docker" {
-  src = "ent://internal/ent/schema"
-  dev = "docker://postgres"
+  url = getenv("DATABASE_URL")
+  dev = "docker://postgres/15/dev?search_path=public"
   
   migration {
     dir = "file://internal/migrate/migrations"

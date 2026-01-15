@@ -1,6 +1,6 @@
 //go:build integration
 
-package handlers_test
+package server_test
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ivankorhner/polling-app/internal/handlers"
+	"github.com/ivankorhner/polling-app/internal/server"
 	"github.com/ivankorhner/polling-app/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,13 +38,13 @@ func TestHandleCreatePoll_Success(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleCreatePoll(logger, testDB.Client)
+	handler := server.HandleCreatePoll(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusCreated, rec.Code)
 	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
 
-	var result handlers.PollResponse
+	var result server.PollResponse
 	err = json.Unmarshal(rec.Body.Bytes(), &result)
 	require.NoError(t, err)
 
@@ -74,7 +74,7 @@ func TestHandleCreatePoll_MissingTitle(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleCreatePoll(logger, testDB.Client)
+	handler := server.HandleCreatePoll(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
@@ -92,7 +92,7 @@ func TestHandleCreatePoll_MissingOwnerID(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleCreatePoll(logger, testDB.Client)
+	handler := server.HandleCreatePoll(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
@@ -116,7 +116,7 @@ func TestHandleCreatePoll_TooFewOptions(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleCreatePoll(logger, testDB.Client)
+	handler := server.HandleCreatePoll(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
@@ -134,7 +134,7 @@ func TestHandleCreatePoll_OwnerNotFound(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleCreatePoll(logger, testDB.Client)
+	handler := server.HandleCreatePoll(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
@@ -152,7 +152,7 @@ func TestHandleCreatePoll_InvalidJSON(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleCreatePoll(logger, testDB.Client)
+	handler := server.HandleCreatePoll(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)

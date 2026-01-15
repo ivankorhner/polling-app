@@ -1,0 +1,19 @@
+#!/bin/sh
+# Pre-commit hook: runs formatting and linting checks
+
+set -e
+
+echo "Running go fmt..."
+UNFMT=$(gofmt -l .)
+if [ -n "$UNFMT" ]; then
+    echo "The following files are not formatted:"
+    echo "$UNFMT"
+    echo ""
+    echo "Run 'make fmt' to fix."
+    exit 1
+fi
+
+echo "Running golangci-lint..."
+golangci-lint run ./...
+
+echo "Pre-commit checks passed!"

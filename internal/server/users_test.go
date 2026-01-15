@@ -1,6 +1,6 @@
 //go:build integration
 
-package handlers_test
+package server_test
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ivankorhner/polling-app/internal/handlers"
+	"github.com/ivankorhner/polling-app/internal/server"
 	"github.com/ivankorhner/polling-app/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,13 +30,13 @@ func TestHandleRegisterUser_Success(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleRegisterUser(logger, testDB.Client)
+	handler := server.HandleRegisterUser(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusCreated, rec.Code)
 	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
 
-	var result handlers.UserResponse
+	var result server.UserResponse
 	err := json.Unmarshal(rec.Body.Bytes(), &result)
 	require.NoError(t, err)
 
@@ -65,7 +65,7 @@ func TestHandleRegisterUser_DuplicateUsername(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleRegisterUser(logger, testDB.Client)
+	handler := server.HandleRegisterUser(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusConflict, rec.Code)
@@ -90,7 +90,7 @@ func TestHandleRegisterUser_DuplicateEmail(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleRegisterUser(logger, testDB.Client)
+	handler := server.HandleRegisterUser(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusConflict, rec.Code)
@@ -108,7 +108,7 @@ func TestHandleRegisterUser_MissingUsername(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleRegisterUser(logger, testDB.Client)
+	handler := server.HandleRegisterUser(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
@@ -126,7 +126,7 @@ func TestHandleRegisterUser_MissingEmail(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleRegisterUser(logger, testDB.Client)
+	handler := server.HandleRegisterUser(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
@@ -144,7 +144,7 @@ func TestHandleRegisterUser_InvalidJSON(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleRegisterUser(logger, testDB.Client)
+	handler := server.HandleRegisterUser(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)

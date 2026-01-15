@@ -50,13 +50,13 @@ func SetupTestDB(ctx context.Context, t *testing.T) *TestDB {
 
 	connStr, err := container.ConnectionString(ctx, "sslmode=disable")
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		t.Fatalf("failed to get connection string: %v", err)
 	}
 
 	db, err := sql.Open("pgx", connStr)
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		t.Fatalf("failed to open database: %v", err)
 	}
 
@@ -66,7 +66,7 @@ func SetupTestDB(ctx context.Context, t *testing.T) *TestDB {
 	// Run auto-migration to create schema
 	if err := client.Schema.Create(ctx); err != nil {
 		client.Close()
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		t.Fatalf("failed to run migrations: %v", err)
 	}
 

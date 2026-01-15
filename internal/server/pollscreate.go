@@ -1,4 +1,4 @@
-package handlers
+package server
 
 import (
 	"context"
@@ -107,7 +107,7 @@ func createPollWithOptions(ctx context.Context, client *ent.Client, req CreatePo
 		SetTitle(req.Title).
 		Save(ctx)
 	if err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		return nil, err
 	}
 
@@ -117,7 +117,7 @@ func createPollWithOptions(ctx context.Context, client *ent.Client, req CreatePo
 			SetText(optionText).
 			Save(ctx)
 		if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return nil, err
 		}
 	}

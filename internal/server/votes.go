@@ -1,4 +1,4 @@
-package handlers
+package server
 
 import (
 	"context"
@@ -122,7 +122,7 @@ func createVoteWithIncrement(ctx context.Context, client *ent.Client, pollID, op
 		SetUserID(userID).
 		Save(ctx)
 	if err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		return err
 	}
 
@@ -130,7 +130,7 @@ func createVoteWithIncrement(ctx context.Context, client *ent.Client, pollID, op
 		SetVoteCount(currentVoteCount + 1).
 		Exec(ctx)
 	if err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		return err
 	}
 

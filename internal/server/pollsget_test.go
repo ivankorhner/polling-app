@@ -1,6 +1,6 @@
 //go:build integration
 
-package handlers_test
+package server_test
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ivankorhner/polling-app/internal/handlers"
+	"github.com/ivankorhner/polling-app/internal/server"
 	"github.com/ivankorhner/polling-app/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,13 +28,13 @@ func TestHandleListPolls_EmptyDatabase(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/polls", nil)
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleListPolls(logger, testDB.Client)
+	handler := server.HandleListPolls(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
 
-	var polls []handlers.PollResponse
+	var polls []server.PollResponse
 	err := json.Unmarshal(rec.Body.Bytes(), &polls)
 	require.NoError(t, err)
 	assert.Empty(t, polls)
@@ -79,12 +79,12 @@ func TestHandleListPolls_WithPolls(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/polls", nil)
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleListPolls(logger, testDB.Client)
+	handler := server.HandleListPolls(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var polls []handlers.PollResponse
+	var polls []server.PollResponse
 	err = json.Unmarshal(rec.Body.Bytes(), &polls)
 	require.NoError(t, err)
 	require.Len(t, polls, 1)
@@ -131,13 +131,13 @@ func TestHandleGetPoll_Success(t *testing.T) {
 	req.SetPathValue("id", fmt.Sprintf("%d", poll.ID))
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleGetPoll(logger, testDB.Client)
+	handler := server.HandleGetPoll(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
 
-	var result handlers.PollResponse
+	var result server.PollResponse
 	err = json.Unmarshal(rec.Body.Bytes(), &result)
 	require.NoError(t, err)
 
@@ -158,7 +158,7 @@ func TestHandleGetPoll_NotFound(t *testing.T) {
 	req.SetPathValue("id", "99999")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleGetPoll(logger, testDB.Client)
+	handler := server.HandleGetPoll(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusNotFound, rec.Code)
@@ -175,7 +175,7 @@ func TestHandleGetPoll_InvalidID(t *testing.T) {
 	req.SetPathValue("id", "invalid")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleGetPoll(logger, testDB.Client)
+	handler := server.HandleGetPoll(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)

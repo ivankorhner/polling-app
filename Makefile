@@ -1,4 +1,4 @@
-.PHONY: help build run test test-integration lint clean ent ent-gen install-atlas migrate-new migrate-apply migrate-status migrate-validate migrate-rollback migrate-reset migrate-ci migrate-hash db-up db-down db-shell seed
+.PHONY: help build run test test-integration lint clean ent ent-gen install-atlas migrate-new migrate-apply migrate-status migrate-validate migrate-rollback migrate-reset migrate-ci migrate-hash db-up db-down db-shell seed install-hooks
 
 # Variables
 BINARY_NAME=polling-app
@@ -38,7 +38,8 @@ test: ## Run unit tests (no Docker required)
 	$(GO) tool cover -html=coverage.out -o coverage.html
 
 test-integration: ## Run integration tests (requires Docker)
-	$(GO) test $(GOFLAGS) -race -tags=integration -count=1 ./...
+	$(GO) test $(GOFLAGS) -race -tags=integration -count=1 -coverprofile=coverage-integration.out ./...
+	$(GO) tool cover -html=coverage-integration.out -o coverage-integration.html
 
 lint: ## Run linters (golangci-lint)
 	@which golangci-lint > /dev/null || (echo "Installing golangci-lint..." && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest)
@@ -50,7 +51,7 @@ fmt: ## Format code
 clean: ## Remove build artifacts and temporary files
 	$(GO) clean
 	rm -f $(BINARY_NAME)
-	rm -f coverage.out coverage.html
+	rm -f coverage.out coverage.html coverage-integration.out coverage-integration.html
 
 ent-gen: ## Generate Ent code from schema
 	$(GO) run -mod=mod entgo.io/ent/cmd/ent generate ./internal/ent/schema
@@ -132,5 +133,10 @@ db-shell: ## Connect to PostgreSQL database shell
 
 seed: ## Seed database with demo data
 	$(GO) run ./cmd/seed
+
+install-hooks: ## Install git pre-commit hooks
+	@cp scripts/pre-commit .git/hooks/pre-commit
+	@chmod +x .git/hooks/pre-commit
+	@echo "Pre-commit hook installed!"
 
 .DEFAULT_GOAL := help

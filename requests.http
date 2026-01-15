@@ -1,63 +1,135 @@
 ### Polling App API Requests
-### Base URL
+### A story-driven walkthrough of the API
+
 @baseUrl = http://localhost:8080
 @contentType = application/json
 
-### Create a new poll
+### ============================================
+### 1. Health Check
+### ============================================
+
+GET {{baseUrl}}/health
+
+###
+
+### ============================================
+### 2. Register Two Users
+### ============================================
+
+### Register Alice
+POST {{baseUrl}}/users
+Content-Type: {{contentType}}
+
+{
+  "username": "alice",
+  "email": "alice@example.com"
+}
+
+###
+
+### Register Bob
+POST {{baseUrl}}/users
+Content-Type: {{contentType}}
+
+{
+  "username": "bob",
+  "email": "bob@example.com"
+}
+
+###
+
+### ============================================
+### 3. Create First Poll (by Alice, user_id: 1)
+### ============================================
+
 POST {{baseUrl}}/polls
 Content-Type: {{contentType}}
 
 {
-  "title": "Best Programming Language",
-  "question": "Which programming language do you prefer?",
+  "owner_id": 1,
+  "title": "Best Programming Language?",
   "options": ["Go", "Rust", "Python", "JavaScript"]
 }
 
 ###
 
-### Create another poll
+### ============================================
+### 4. Create Second Poll (by Bob, user_id: 2)
+### ============================================
+
 POST {{baseUrl}}/polls
 Content-Type: {{contentType}}
 
 {
-  "title": "Best Go Web Framework",
-  "question": "What's your favorite Go web framework?",
-  "options": ["Gin", "Echo", "Chi", "Fiber"]
+  "owner_id": 2,
+  "title": "Best Go Web Framework?",
+  "options": ["Chi", "Gin", "Echo", "Fiber"]
 }
 
 ###
 
-### List all polls
+### ============================================
+### 5. List All Polls
+### ============================================
+
 GET {{baseUrl}}/polls
 
 ###
 
-### Get a specific poll (replace 1 with actual poll ID)
+### ============================================
+### 6. Get Poll 1 (before voting)
+### ============================================
+
 GET {{baseUrl}}/polls/1
 
 ###
 
-### Vote on a poll option (replace 1 with poll ID, option_index with 0-3)
+### ============================================
+### 7. Both Users Vote on Poll 1, Option 1 (Go)
+### ============================================
+
+### Alice votes for Go (option_id: 1)
 POST {{baseUrl}}/polls/1/vote
 Content-Type: {{contentType}}
 
 {
-  "option_index": 0
+  "option_id": 1,
+  "user_id": 1
 }
 
 ###
 
-### Vote on another option
+### Bob votes for Go (option_id: 1)
 POST {{baseUrl}}/polls/1/vote
 Content-Type: {{contentType}}
 
 {
-  "option_index": 2
+  "option_id": 1,
+  "user_id": 2
 }
 
 ###
 
-### Delete a poll (replace 1 with poll ID)
+### ============================================
+### 8. Get Poll 1 (after voting - should show 2 votes on Go)
+### ============================================
+
+GET {{baseUrl}}/polls/1
+
+###
+
+### ============================================
+### 9. Delete Poll 1
+### ============================================
+
 DELETE {{baseUrl}}/polls/1
+
+###
+
+### ============================================
+### 10. Get Poll 1 (should return 404 Not Found)
+### ============================================
+
+GET {{baseUrl}}/polls/1
 
 ###

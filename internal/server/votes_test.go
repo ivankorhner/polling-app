@@ -1,6 +1,6 @@
 //go:build integration
 
-package handlers_test
+package server_test
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ivankorhner/polling-app/internal/handlers"
+	"github.com/ivankorhner/polling-app/internal/server"
 	"github.com/ivankorhner/polling-app/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -68,13 +68,13 @@ func TestHandleVote_Success(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleVote(logger, testDB.Client)
+	handler := server.HandleVote(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
 
-	var result handlers.PollResponse
+	var result server.PollResponse
 	err = json.Unmarshal(rec.Body.Bytes(), &result)
 	require.NoError(t, err)
 
@@ -82,7 +82,7 @@ func TestHandleVote_Success(t *testing.T) {
 	require.Len(t, result.Options, 2)
 
 	// Find the voted option by ID and verify vote count incremented
-	var votedOption *handlers.OptionResponse
+	var votedOption *server.OptionResponse
 	for i := range result.Options {
 		if result.Options[i].ID == option1.ID {
 			votedOption = &result.Options[i]
@@ -136,7 +136,7 @@ func TestHandleVote_DuplicateVote(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleVote(logger, testDB.Client)
+	handler := server.HandleVote(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusConflict, rec.Code)
@@ -155,7 +155,7 @@ func TestHandleVote_PollNotFound(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleVote(logger, testDB.Client)
+	handler := server.HandleVote(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusNotFound, rec.Code)
@@ -188,7 +188,7 @@ func TestHandleVote_OptionNotFound(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleVote(logger, testDB.Client)
+	handler := server.HandleVote(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
@@ -229,7 +229,7 @@ func TestHandleVote_UserNotFound(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleVote(logger, testDB.Client)
+	handler := server.HandleVote(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
@@ -248,7 +248,7 @@ func TestHandleVote_MissingOptionID(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleVote(logger, testDB.Client)
+	handler := server.HandleVote(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
@@ -267,7 +267,7 @@ func TestHandleVote_MissingUserID(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleVote(logger, testDB.Client)
+	handler := server.HandleVote(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
@@ -286,7 +286,7 @@ func TestHandleVote_InvalidPollID(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler := handlers.HandleVote(logger, testDB.Client)
+	handler := server.HandleVote(logger, testDB.Client)
 	handler.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
