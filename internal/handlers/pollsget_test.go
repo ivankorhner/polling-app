@@ -5,6 +5,7 @@ package handlers_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -95,4 +96,87 @@ func TestHandleListPolls_WithPolls(t *testing.T) {
 	assert.Equal(t, 5, polls[0].Options[0].VoteCount)
 	assert.Equal(t, "Option 2", polls[0].Options[1].Text)
 	assert.Equal(t, 3, polls[0].Options[1].VoteCount)
+}
+
+func TestHandleGetPoll_Success(t *testing.T) {
+	ctx := context.Background()
+	testDB := testutil.SetupTestDB(ctx, t)
+	defer testDB.Teardown(ctx)
+
+	// Create test user
+	user, err := testDB.Client.User.Create().
+		SetUsername("testuser").
+		SetEmail("test@example.com").
+		Save(ctx)
+	require.NoError(t, err)
+
+	// Create test poll
+	poll, err := testDB.Client.Poll.Create().
+		SetOwnerID(user.ID).
+		SetTitle("Test Poll").
+		Save(ctx)
+	require.NoError(t, err)
+
+	// Create test option
+	_, err = testDB.Client.PollOption.Create().
+		SetPollID(poll.ID).
+		SetText("Option 1").
+		SetVoteCount(5).
+		Save(ctx)
+	require.NoError(t, err)
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/polls/%d", poll.ID), nil)
+	req.SetPathValue("id", fmt.Sprintf("%d", poll.ID))
+	rec := httptest.NewRecorder()
+
+	handler := handlers.HandleGetPoll(logger, testDB.Client)
+	handler.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+
+	var result handlers.PollResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &result)
+	require.NoError(t, err)
+
+	assert.Equal(t, poll.ID, result.ID)
+	assert.Equal(t, "Test Poll", result.Title)
+	require.Len(t, result.Options, 1)
+	assert.Equal(t, "Option 1", result.Options[0].Text)
+}
+
+func TestHandleGetPoll_NotFound(t *testing.T) {
+	ctx := context.Background()
+	testDB := testutil.SetupTestDB(ctx, t)
+	defer testDB.Teardown(ctx)
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest(http.MethodGet, "/polls/99999", nil)
+	req.SetPathValue("id", "99999")
+	rec := httptest.NewRecorder()
+
+	handler := handlers.HandleGetPoll(logger, testDB.Client)
+	handler.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestHandleGetPoll_InvalidID(t *testing.T) {
+	ctx := context.Background()
+	testDB := testutil.SetupTestDB(ctx, t)
+	defer testDB.Teardown(ctx)
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	req := httptest.NewRequest(http.MethodGet, "/polls/invalid", nil)
+	req.SetPathValue("id", "invalid")
+	rec := httptest.NewRecorder()
+
+	handler := handlers.HandleGetPoll(logger, testDB.Client)
+	handler.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
