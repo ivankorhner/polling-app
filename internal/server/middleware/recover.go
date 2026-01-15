@@ -14,6 +14,7 @@ func panicRecovery(logger *slog.Logger, next http.Handler) http.Handler {
 					slog.LevelError,
 					"panic recovered",
 					slog.String(RequestIDKey, requestIDFromContext(r.Context())),
+
 					slog.String("path", r.URL.Path),
 					slog.Any("panic", rec),
 				)

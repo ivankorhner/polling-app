@@ -19,6 +19,69 @@ A polling application built with Go and PostgreSQL.
 - Ent ORM (with auto-migrations)
 - Testcontainers for integration tests
 
+## Database Schema
+
+```
+┌─────────────────┐       ┌─────────────────────┐
+│     users       │       │       polls         │
+├─────────────────┤       ├─────────────────────┤
+│ id (PK)         │◄──────│ owner_id (FK)       │
+│ username (UQ)   │       │ id (PK)             │
+│ email (UQ)      │       │ title               │
+│ created_at      │       │ created_at          │
+└─────────────────┘       └─────────────────────┘
+        │                           │
+        │                           │
+        │                           ▼
+        │                 ┌─────────────────────┐
+        │                 │    poll_options     │
+        │                 ├─────────────────────┤
+        │                 │ id (PK)             │
+        │                 │ poll_id (FK) [CASCADE]
+        │                 │ text                │
+        │                 │ created_at          │
+        │                 └─────────────────────┘
+        │                           │
+        │                           │
+        ▼                           ▼
+┌───────────────────────────────────────────────┐
+│                    votes                      │
+├───────────────────────────────────────────────┤
+│ id (PK)                                       │
+│ user_id (FK)                                  │
+│ poll_id (FK) [CASCADE]                        │
+│ option_id (FK)                                │
+│ created_at                                    │
+│ UNIQUE(user_id, poll_id)                      │
+└───────────────────────────────────────────────┘
+```
+
+### Tables
+
+| Table | Column | Type | Constraints |
+|-------|--------|------|-------------|
+| **users** | id | int | PK, auto-increment |
+| | username | string | unique |
+| | email | string | unique |
+| | created_at | timestamp | |
+| **polls** | id | int | PK, auto-increment |
+| | title | string | |
+| | owner_id | int | FK → users.id |
+| | created_at | timestamp | |
+| **poll_options** | id | int | PK, auto-increment |
+| | text | string | |
+| | poll_id | int | FK → polls.id (CASCADE) |
+| | created_at | timestamp | |
+| **votes** | id | int | PK, auto-increment |
+| | user_id | int | FK → users.id |
+| | poll_id | int | FK → polls.id (CASCADE) |
+| | option_id | int | FK → poll_options.id |
+| | created_at | timestamp | |
+
+**Constraints:**
+- One vote per user per poll (`UNIQUE(user_id, poll_id)`)
+- Deleting a poll cascades to its options and votes
+
 ## Dependencies
 
 - Go 1.21+
