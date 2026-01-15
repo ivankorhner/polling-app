@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log/slog"
 
+	"entgo.io/ent/dialect"
+	entsql "entgo.io/ent/dialect/sql"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/ivankorhner/polling-app/internal/config"
@@ -17,11 +20,15 @@ func main() {
 	logger := logging.NewLogger(slog.LevelInfo)
 
 	// Connect to database
-	client, err := ent.Open("pgx", cfg.DatabaseURL())
+	db, err := sql.Open("pgx", cfg.DatabaseURL())
 	if err != nil {
 		logger.LogAttrs(ctx, slog.LevelError, "failed to open database", slog.Any("error", err))
 		return
 	}
+	defer db.Close()
+
+	drv := entsql.OpenDB(dialect.Postgres, db)
+	client := ent.NewClient(ent.Driver(drv))
 	defer client.Close()
 
 	logger.Info("seeding database with demo data")
