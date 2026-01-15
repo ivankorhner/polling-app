@@ -23,6 +23,7 @@ func AddRoutes(
 
 	mux.Handle(http.MethodGet+" /health", handlers.HandleHealth(logger))
 	mux.Handle(http.MethodGet+" /polls", handlers.HandleListPolls(logger, client))
+	mux.Handle(http.MethodGet+" /polls/{id}", handlers.HandleGetPoll(logger, client))
 
 	mux.Handle("/", http.NotFoundHandler())
 

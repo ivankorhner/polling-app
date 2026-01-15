@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/ivankorhner/polling-app/internal/ent"
+	entpoll "github.com/ivankorhner/polling-app/internal/ent/poll"
 )
 
 type PollResponse struct {
@@ -49,6 +51,47 @@ func HandleListPolls(logger *slog.Logger, client *ent.Client) http.Handler {
 				r.Context(),
 				slog.LevelError,
 				"failed to encode polls response",
+				slog.String("error", err.Error()),
+			)
+		}
+	})
+}
+
+func HandleGetPoll(logger *slog.Logger, client *ent.Client) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.PathValue("id")
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			http.Error(w, "invalid poll id", http.StatusBadRequest)
+			return
+		}
+
+		poll, err := client.Poll.Query().
+			WithOptions().
+			Where(entpoll.ID(id)).
+			Only(r.Context())
+		if err != nil {
+			if ent.IsNotFound(err) {
+				http.Error(w, "poll not found", http.StatusNotFound)
+				return
+			}
+			logger.LogAttrs(
+				r.Context(),
+				slog.LevelError,
+				"failed to query poll",
+				slog.String("error", err.Error()),
+				slog.Int("poll_id", id),
+			)
+			http.Error(w, "failed to retrieve poll", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(mapPollToResponse(poll)); err != nil {
+			logger.LogAttrs(
+				r.Context(),
+				slog.LevelError,
+				"failed to encode poll response",
 				slog.String("error", err.Error()),
 			)
 		}
