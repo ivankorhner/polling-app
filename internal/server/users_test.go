@@ -124,10 +124,10 @@ func TestHandleRegisterUser_Validation(t *testing.T) {
 
 func TestHandleRegisterUser_Conflict(t *testing.T) {
 	tests := []struct {
-		name          string
-		existingUser  map[string]string
-		newUser       map[string]string
-		wantStatus    int
+		name         string
+		existingUser map[string]string
+		newUser      map[string]string
+		wantStatus   int
 	}{
 		{
 			name: "duplicate username",
