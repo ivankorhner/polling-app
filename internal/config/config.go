@@ -27,7 +27,7 @@ func LoadConfig() *Config {
 	cfg := &Config{
 		// HTTP defaults
 		Port:       8080,
-		Host:       "localhost",
+		Host:       "0.0.0.0",
 		APITimeout: 30 * time.Second,
 
 		// Database defaults
